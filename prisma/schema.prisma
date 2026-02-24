@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model EPA {
+  id          String   @id
+  title       String
+  description String
+  keywords    String   // JSON array of keywords
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sessions    Session[]
+}
+
+model Session {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  residentName      String
+  residentEmail     String
+  attendingName     String
+  context           String?  // optional: ED/CTU/etc
+  transcriptRaw     String
+  transcriptDeId    String
+  redactionReport   String   // JSON
+  mappedEpaId       String?
+  mappedEpaConfidence Float?
+  entrustment       String   // Intervention|Direction|Support|Autonomy|Excellence
+  entrustmentConfidence Float
+  draftJson         String   // JSON (feedback form)
+  approved          Boolean  @default(false)
+  approvedAt        DateTime?
+  emailSent         Boolean  @default(false)
+  emailSentAt       DateTime?
+
+  epa EPA? @relation(fields: [mappedEpaId], references: [id])
+}

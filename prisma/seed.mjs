@@ -1,0 +1,218 @@
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const epas = [
+  {
+    "id": "FOD-1",
+    "title": "Assess and provide initial management for common acute medical presentations",
+    "description": "Assess, diagnose and provide initial management for common acute medical presentations (e.g., chest pain, shortness of breath, altered LOC, fever, hemodynamic instability).",
+    "keywords": [
+      "acute",
+      "chest pain",
+      "sob",
+      "shortness of breath",
+      "altered",
+      "fever",
+      "unstable",
+      "hemodynamic",
+      "sepsis",
+      "workup",
+      "initial management",
+      "ED"
+    ]
+  },
+  {
+    "id": "FOD-2A",
+    "title": "Inpatient: assess/diagnose/manage common medical problems and advance care plans",
+    "description": "In inpatient setting: assess, diagnose, manage common medical problems and advance care plans.",
+    "keywords": [
+      "ward",
+      "inpatient",
+      "rounds",
+      "assessment",
+      "plan",
+      "advance care plan",
+      "progress note",
+      "diagnosis",
+      "management"
+    ]
+  },
+  {
+    "id": "FOD-2B",
+    "title": "Inpatient: communicate with patients and families",
+    "description": "Communicate effectively with patients/families in inpatient setting.",
+    "keywords": [
+      "family",
+      "communication",
+      "explain",
+      "counsel",
+      "informed",
+      "questions",
+      "expectations",
+      "discussed with patient",
+      "family meeting"
+    ]
+  },
+  {
+    "id": "FOD-2C",
+    "title": "Inpatient: handover",
+    "description": "Provide effective handover/transfer of care in inpatient setting.",
+    "keywords": [
+      "handover",
+      "signover",
+      "handoff",
+      "transfer",
+      "to night team",
+      "SBAR",
+      "pending",
+      "tasks",
+      "to-do"
+    ]
+  },
+  {
+    "id": "FOD-3",
+    "title": "Consult specialists/other professionals and integrate recommendations",
+    "description": "Initiate consultation and integrate recommendations into care plan.",
+    "keywords": [
+      "consult",
+      "cardiology",
+      "GI",
+      "ICU consult",
+      "recommendations",
+      "call",
+      "paged",
+      "specialist",
+      "allied health",
+      "PT",
+      "SW"
+    ]
+  },
+  {
+    "id": "FOD-4",
+    "title": "Discharge planning and communication",
+    "description": "Create and implement safe discharge plan, communicate with patient and team.",
+    "keywords": [
+      "discharge",
+      "home",
+      "follow-up",
+      "med rec",
+      "discharge summary",
+      "teach-back",
+      "instructions",
+      "community",
+      "arrange"
+    ]
+  },
+  {
+    "id": "FOD-5",
+    "title": "Assess and treat an unstable patient",
+    "description": "Assess and provide targeted treatment for an unstable patient; seek help/consult as needed.",
+    "keywords": [
+      "unstable",
+      "hypotension",
+      "shock",
+      "rapid response",
+      "code",
+      "resus",
+      "airway",
+      "pressors",
+      "bolus",
+      "ICU",
+      "escalate"
+    ]
+  },
+  {
+    "id": "FOD-6",
+    "title": "Goals of care discussion",
+    "description": "Discuss goals of care and document appropriately.",
+    "keywords": [
+      "goals of care",
+      "code status",
+      "DNR",
+      "comfort",
+      "palliative",
+      "SDM",
+      "substitute decision maker",
+      "values",
+      "advance directive"
+    ]
+  },
+  {
+    "id": "FOD-7",
+    "title": "Identify and address personal learning needs",
+    "description": "Identify learning needs during clinical care and address them.",
+    "keywords": [
+      "learning",
+      "read about",
+      "looked up",
+      "feedback",
+      "improve",
+      "next time",
+      "plan to review",
+      "reflection",
+      "self-directed"
+    ]
+  },
+  {
+    "id": "COD-5",
+    "title": "Perform internal medicine procedures (optional)",
+    "description": "Perform IM procedures (e.g., paracentesis, thoracentesis, LP, knee aspiration).",
+    "keywords": [
+      "paracentesis",
+      "thoracentesis",
+      "lumbar puncture",
+      "LP",
+      "knee aspiration",
+      "procedure",
+      "consent",
+      "sterile",
+      "ultrasound guidance"
+    ]
+  },
+  {
+    "id": "COD-8",
+    "title": "Patient safety incident disclosure/care after incident (optional)",
+    "description": "Provide care after a patient safety incident including disclosure.",
+    "keywords": [
+      "incident",
+      "error",
+      "near miss",
+      "disclosure",
+      "apology",
+      "safety",
+      "report",
+      "quality",
+      "harm",
+      "open disclosure"
+    ]
+  }
+];
+  for (const e of epas) {
+    await prisma.ePA.upsert({
+      where: { id: e.id },
+      update: {
+        title: e.title,
+        description: e.description,
+        keywords: JSON.stringify(e.keywords)
+      },
+      create: {
+        id: e.id,
+        title: e.title,
+        description: e.description,
+        keywords: JSON.stringify(e.keywords)
+      }
+    });
+  }
+  console.log(`Seeded ${epas.length} EPAs`);
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

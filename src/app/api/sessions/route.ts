@@ -66,6 +66,7 @@ export async function POST(req: Request) {
       });
     }
 
+    // EPA catalog is now JSON-backed, so avoid relying on DB-side EPA foreign keys.
     const session = await prisma.session.create({
       data: {
         residentName: body.residentName,
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
         transcriptRaw: body.transcript,
         transcriptDeId: de.deidentified,
         redactionReport: JSON.stringify({ redactions: de.redactions }),
-        mappedEpaId,
+        mappedEpaId: null,
         mappedEpaConfidence,
         entrustment,
         entrustmentConfidence,

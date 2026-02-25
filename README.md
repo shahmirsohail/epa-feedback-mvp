@@ -23,12 +23,13 @@ cp .env.example .env
 npm install
 ```
 
-## 3) Database (SQLite + Prisma)
+## 3) Database (SQLite + Prisma, sessions only)
 ```bash
 npm run prisma:generate
 npm run prisma:migrate
-npm run prisma:seed
 ```
+
+EPA definitions are now loaded from `src/data/epas.json` (no EPA seeding needed).
 
 ## 4) Run
 ```bash

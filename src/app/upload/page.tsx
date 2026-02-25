@@ -2,6 +2,32 @@
 
 import { useEffect, useRef, useState } from "react";
 
+function extFromMimeType(mimeType: string | undefined) {
+  if (!mimeType) return "webm";
+  if (mimeType.includes("webm")) return "webm";
+  if (mimeType.includes("mp4")) return "mp4";
+  if (mimeType.includes("mpeg")) return "mp3";
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("ogg")) return "ogg";
+  return "webm";
+}
+
+function pickRecordingMimeType() {
+  const preferred = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus"
+  ];
+
+  for (const mimeType of preferred) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(mimeType)) {
+      return mimeType;
+    }
+  }
+  return undefined;
+}
+
 export default function UploadPage() {
   const [residentName, setResidentName] = useState("");
   const [residentEmail, setResidentEmail] = useState("");
@@ -30,18 +56,44 @@ export default function UploadPage() {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+<<<<<<< HEAD
+      const mimeType = pickRecordingMimeType();
+      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+
+=======
       const mr = new MediaRecorder(stream);
+>>>>>>> origin/main
       chunksRef.current = [];
       mr.ondataavailable = (ev) => {
         if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
       };
       mr.onstop = () => {
+<<<<<<< HEAD
+        const finalMimeType = mr.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type: finalMimeType });
+
+        if (blob.size === 0) {
+          setError("Recording was empty. Please record for at least 1–2 seconds and try again.");
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        const ext = extFromMimeType(finalMimeType);
+        const file = new File([blob], `recording.${ext}`, { type: finalMimeType });
+        setAudioBlob(blob);
+        setAudioFile(file);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+
+      mr.start(250);
+=======
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         setAudioBlob(blob);
         setAudioFile(new File([blob], "recording.webm", { type: "audio/webm" }));
         stream.getTracks().forEach(t => t.stop());
       };
       mr.start();
+>>>>>>> origin/main
       mediaRecorderRef.current = mr;
       setRecording(true);
     } catch (e: any) {
@@ -51,7 +103,12 @@ export default function UploadPage() {
 
   function stopRecording() {
     const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== "inactive") mr.stop();
+    if (mr && mr.state !== "inactive") {
+      try {
+        mr.requestData();
+      } catch {}
+      mr.stop();
+    }
     setRecording(false);
   }
 
@@ -61,8 +118,15 @@ export default function UploadPage() {
     setError(null);
     try {
       const fd = new FormData();
+<<<<<<< HEAD
+      const fallbackMimeType = audioBlob.type || "audio/webm";
+      const fallbackExt = extFromMimeType(fallbackMimeType);
+      const file = audioFile ?? new File([audioBlob], `feedback.${fallbackExt}`, { type: fallbackMimeType });
+      fd.append("audio", file, file.name);
+=======
       const file = audioFile ?? new File([audioBlob], "feedback.webm", { type: audioBlob.type || "audio/webm" });
       fd.append("audio", file);
+>>>>>>> origin/main
 
       const res = await fetch("/api/transcribe", { method: "POST", body: fd });
       const data = await res.json();

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { prisma } from "./prisma";
 import { getOpenAIClient } from "./openai";
 import { EntrustmentSchema } from "./epa";
+import { getEpas } from "./epas";
 
 const AnalysisSchema = z.object({
   primary_epa_id: z.string().nullable(),
@@ -39,7 +39,7 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   const model = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
   const client = getOpenAIClient();
 
-  const epas = await prisma.ePA.findMany({ orderBy: { id: "asc" } });
+  const epas = getEpas().sort((a, b) => a.id.localeCompare(b.id));
   const epaList = epas.map(e => ({
     id: e.id,
     title: e.title,

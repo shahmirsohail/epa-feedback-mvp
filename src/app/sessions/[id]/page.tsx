@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getEpas } from "@/lib/epas";
 import DraftEditor from "./DraftEditor";
 
 export const dynamic = "force-dynamic";
@@ -9,12 +10,11 @@ function prettyJson(s: string) {
 
 export default async function SessionPage({ params }: { params: { id: string }}) {
   const session = await prisma.session.findUnique({
-    where: { id: params.id },
-    include: { epa: true }
+    where: { id: params.id }
   });
   if (!session) return <main>Not found</main>;
 
-  const epas = await prisma.ePA.findMany({ orderBy: { id: "asc" } });
+  const epas = getEpas().sort((a, b) => a.id.localeCompare(b.id));
   const draft = JSON.parse(session.draftJson);
   const meta = draft?.meta || {};
   const method = meta.method || "heuristic";
@@ -35,7 +35,7 @@ export default async function SessionPage({ params }: { params: { id: string }})
         <div className="p-3 border rounded bg-slate-50 text-sm min-w-[280px] space-y-1">
           <div className="font-semibold">Auto-analysis</div>
           <div className="text-xs text-slate-600">Method: <span className="font-medium">{method === "llm" ? "AI (LLM) draft" : "Heuristic draft"}</span></div>
-          <div><span className="font-medium">EPA:</span> {session.mappedEpaId ?? "Unmapped"} {session.mappedEpaConfidence != null ? <span className="text-xs text-slate-600">(conf {Number(session.mappedEpaConfidence).toFixed(2)})</span> : null}</div>
+          <div><span className="font-medium">EPA:</span> {session.mappedEpaId ?? draft?.epaId ?? "Unmapped"} {session.mappedEpaConfidence != null ? <span className="text-xs text-slate-600">(conf {Number(session.mappedEpaConfidence).toFixed(2)})</span> : null}</div>
           {meta.epa_rationale && (
             <div className="text-xs text-slate-700">
               <span className="font-medium">Rationale:</span> {meta.epa_rationale}
@@ -82,7 +82,7 @@ export default async function SessionPage({ params }: { params: { id: string }})
       <DraftEditor
         sessionId={session.id}
         epas={epas.map(e => ({ id: e.id, title: e.title, description: e.description }))}
-        initialMappedEpaId={session.mappedEpaId}
+        initialMappedEpaId={session.mappedEpaId ?? draft?.epaId ?? null}
         initialMappedEpaConfidence={session.mappedEpaConfidence}
         initialEntrustment={session.entrustment as any}
         initialEntrustmentConfidence={session.entrustmentConfidence}

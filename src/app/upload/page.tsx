@@ -14,6 +14,7 @@ export default function UploadPage() {
   // Audio
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -27,21 +28,25 @@ export default function UploadPage() {
 
   async function startRecording() {
     setError(null);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mr = new MediaRecorder(stream);
-    chunksRef.current = [];
-    mr.ondataavailable = (ev) => {
-      if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
-    };
-    mr.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-      setAudioBlob(blob);
-      // stop tracks
-      stream.getTracks().forEach(t => t.stop());
-    };
-    mr.start();
-    mediaRecorderRef.current = mr;
-    setRecording(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
+      };
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        setAudioBlob(blob);
+        setAudioFile(new File([blob], "recording.webm", { type: "audio/webm" }));
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setRecording(true);
+    } catch (e: any) {
+      setError(e?.message || "Microphone permission denied or unavailable.");
+    }
   }
 
   function stopRecording() {
@@ -56,8 +61,7 @@ export default function UploadPage() {
     setError(null);
     try {
       const fd = new FormData();
-      // Next route expects File; create one from blob
-      const file = new File([audioBlob], "feedback.webm", { type: audioBlob.type || "audio/webm" });
+      const file = audioFile ?? new File([audioBlob], "feedback.webm", { type: audioBlob.type || "audio/webm" });
       fd.append("audio", file);
 
       const res = await fetch("/api/transcribe", { method: "POST", body: fd });
@@ -147,6 +151,8 @@ export default function UploadPage() {
                   const f = e.target.files?.[0];
                   if (!f) return;
                   setAudioBlob(f);
+                  setAudioFile(f);
+                  setError(null);
                 }}
               />
             </label>

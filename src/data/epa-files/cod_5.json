@@ -1,0 +1,16 @@
+{
+  "id": "COD-5",
+  "title": "Perform internal medicine procedures (optional)",
+  "description": "Perform IM procedures (e.g., paracentesis, thoracentesis, LP, knee aspiration).",
+  "keywords": [
+    "paracentesis",
+    "thoracentesis",
+    "lumbar puncture",
+    "LP",
+    "knee aspiration",
+    "procedure",
+    "consent",
+    "sterile",
+    "ultrasound guidance"
+  ]
+}

@@ -2,11 +2,18 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+function getEpaFromDraft(draftJson: string): string {
+  try {
+    return JSON.parse(draftJson)?.epaId || "—";
+  } catch {
+    return "—";
+  }
+}
+
 export default async function SessionsPage() {
   const sessions = await prisma.session.findMany({
     orderBy: { createdAt: "desc" },
-    take: 50,
-    include: { epa: true }
+    take: 50
   });
 
   return (
@@ -31,7 +38,7 @@ export default async function SessionsPage() {
                   <a className="font-medium" href={`/sessions/${s.id}`}>{s.residentName}</a>
                   <div className="text-xs text-slate-600">{s.residentEmail}</div>
                 </td>
-                <td className="p-2">{s.mappedEpaId ?? "—"}</td>
+                <td className="p-2">{s.mappedEpaId ?? getEpaFromDraft(s.draftJson)}</td>
                 <td className="p-2">{s.entrustment}</td>
                 <td className="p-2">
                   {s.approved ? (s.emailSent ? "Approved + emailed" : "Approved") : "Draft"}

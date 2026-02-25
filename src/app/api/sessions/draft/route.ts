@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     await prisma.session.update({
       where: { id: body.id },
       data: {
-        mappedEpaId: body.mappedEpaId,
+        mappedEpaId: null,
         mappedEpaConfidence: body.mappedEpaConfidence ?? session.mappedEpaConfidence,
         entrustment: body.entrustment,
         entrustmentConfidence: body.entrustmentConfidence ?? session.entrustmentConfidence,

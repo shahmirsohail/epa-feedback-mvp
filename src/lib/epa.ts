@@ -1,5 +1,5 @@
-import { prisma } from "./prisma";
 import { z } from "zod";
+import { getEpas } from "./epas";
 
 export const EntrustmentSchema = z.enum([
   "Intervention",
@@ -34,10 +34,9 @@ function scoreKeywords(text: string, keywords: string[]) {
 }
 
 export async function matchEPA(text: string): Promise<EpaMatch> {
-  const epas = await prisma.ePA.findMany();
+  const epas = getEpas();
   const scored = epas.map((e) => {
-    const keywords: string[] = JSON.parse(e.keywords || "[]");
-    const s = scoreKeywords(text, keywords) + scoreKeywords(text, [e.title, e.description]);
+    const s = scoreKeywords(text, e.keywords || []) + scoreKeywords(text, [e.title, e.description]);
     return { epaId: e.id, score: s };
   }).sort((a,b) => b.score - a.score);
 

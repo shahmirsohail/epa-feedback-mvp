@@ -5,9 +5,9 @@ export async function sendDraftEmail(opts: {
   to: string;
   residentName: string;
   attendingName: string;
-  sessionId: string;
+  sessionId?: string;
   draft: FeedbackDraft;
-  appBaseUrl: string;
+  appBaseUrl?: string;
 }) {
   const {
     SMTP_HOST,
@@ -31,7 +31,9 @@ export async function sendDraftEmail(opts: {
 
   const subject = `Draft EPA Feedback (${opts.draft.epaId ?? "Unmapped"}) – Please review`;
 
-  const link = `${opts.appBaseUrl.replace(/\/$/, "")}/sessions/${opts.sessionId}`;
+  const link = opts.sessionId && opts.appBaseUrl
+    ? `${opts.appBaseUrl.replace(/\/$/, "")}/sessions/${opts.sessionId}`
+    : null;
 
   const text = [
     `Hi ${opts.attendingName},`,
@@ -51,8 +53,7 @@ export async function sendDraftEmail(opts: {
     `Next steps:`,
     ...opts.draft.nextSteps.map(s => `- ${s}`),
     ``,
-    `Review link: ${link}`,
-    ``,
+    ...(link ? [`Review link: ${link}`, ``] : []),
     `— EPA`
   ].join("\n");
 

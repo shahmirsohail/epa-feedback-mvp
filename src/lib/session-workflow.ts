@@ -15,18 +15,14 @@ export type CreateSessionInput = {
   transcript: string;
 };
 
-export async function createSessionWithDraft(input: CreateSessionInput) {
-  const validEpaIds = new Set(getEpas().map((epa) => epa.id));
-  const validateEpaId = (epaId: string | null | undefined) => {
-    if (!epaId) return null;
-    if (!validEpaIds.has(epaId)) throw new Error(`Invalid EPA ID: ${epaId}`);
-    return epaId;
-  };
+export type DraftOnlyInput = Omit<CreateSessionInput, "residentEmail">;
 
+export async function createDraftFromTranscript(input: DraftOnlyInput) {
   const de = deidentify(input.transcript);
 
   const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: input.context || null });
 
+  let mappedEpaId: string | null = null;
   let mappedEpaConfidence = 0.0;
   let mappedEpaId: string | null = null;
   let entrustment = "Support";
@@ -34,7 +30,7 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
   let draft: FeedbackDraft;
 
   if (llm) {
-    mappedEpaId = validateEpaId(llm.primary_epa_id);
+    mappedEpaId = llm.primary_epa_id;
     mappedEpaConfidence = llm.epa_confidence;
     entrustment = llm.entrustment_level;
     entrustmentConfidence = llm.entrustment_confidence;
@@ -58,6 +54,7 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
     const epaMatch = await matchEPA(de.deidentified);
     mappedEpaId = validateEpaId(epaMatch.epaId);
     const ent = inferEntrustment(de.deidentified);
+    mappedEpaId = epaMatch.epaId;
     mappedEpaConfidence = epaMatch.confidence;
     entrustment = ent.level;
     entrustmentConfidence = ent.confidence;
@@ -70,6 +67,23 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
     });
   }
 
+  const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
+
+  return {
+    deidentifiedTranscript: de.deidentified,
+    redactions: de.redactions,
+    mappedEpaId,
+    mappedEpaConfidence,
+    entrustment,
+    entrustmentConfidence,
+    draft,
+    method
+  };
+}
+
+export async function createSessionWithDraft(input: CreateSessionInput) {
+  const generated = await createDraftFromTranscript(input);
+
   const session = await prisma.session.create({
     data: {
       residentName: input.residentName,
@@ -78,22 +92,30 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
       attendingEmail: input.attendingEmail,
       context: input.context || null,
       transcriptRaw: input.transcript,
-      transcriptDeId: de.deidentified,
-      redactionReport: JSON.stringify({ redactions: de.redactions }),
-      mappedEpaId,
-      mappedEpaConfidence,
-      entrustment,
-      entrustmentConfidence,
-      draftJson: JSON.stringify(draft)
+      transcriptDeId: generated.deidentifiedTranscript,
+      redactionReport: JSON.stringify({ redactions: generated.redactions }),
+      mappedEpaId: generated.mappedEpaId,
+      mappedEpaConfidence: generated.mappedEpaConfidence,
+      entrustment: generated.entrustment,
+      entrustmentConfidence: generated.entrustmentConfidence,
+      draftJson: JSON.stringify(generated.draft)
     }
   });
 
-  return { session, draft, method: llm ? "llm" : "heuristic" as const };
+  return { session, draft: generated.draft, method: generated.method };
 }
 
 export async function emailSessionDraft(sessionId: string) {
   const session = await prisma.session.findUnique({ where: { id: sessionId } });
   if (!session) throw new Error("Not found");
+
+  await prisma.session.update({
+    where: { id: session.id },
+    data: {
+      emailStatus: SESSION_EMAIL_STATES.emailPending,
+      emailError: null
+    }
+  });
 
   const draft = JSON.parse(session.draftJson) as FeedbackDraft;
   const appBaseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
@@ -114,7 +136,9 @@ export async function emailSessionDraft(sessionId: string) {
       approved: true,
       approvedAt: session.approvedAt ?? now,
       emailSent: true,
-      emailSentAt: now
+      emailSentAt: now,
+      emailStatus: SESSION_EMAIL_STATES.emailSent,
+      emailError: null
     }
   });
 }

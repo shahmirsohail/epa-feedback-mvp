@@ -37,6 +37,11 @@ npm run dev
 ```
 Open http://localhost:3000
 
+### No-database mode for quick draft+email
+The `/upload` flow now works without a Prisma/SQLite database. It generates the draft directly from transcript/audio and emails the attending immediately.
+
+Database setup is only required for session persistence pages (`/sessions`, `/sessions/[id]`) and related legacy APIs.
+
 ## 5) Email configuration (optional)
 To send emails, edit `.env` and set:
 - SMTP_HOST

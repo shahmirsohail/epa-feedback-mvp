@@ -9,6 +9,10 @@ const BodySchema = z.object({
     .trim()
     .email("Attending email must be a valid email address."),
   residentName: z.string({ required_error: "Resident name is required." }).trim().min(1, "Resident name is required."),
+  residentEmail: z
+    .string({ required_error: "Resident email is required." })
+    .trim()
+    .email("Resident email must be a valid email address."),
   transcript: z
     .string({ required_error: "Transcript is required." })
     .trim()

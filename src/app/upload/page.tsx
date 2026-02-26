@@ -35,6 +35,7 @@ export default function UploadPage() {
   const [residentName, setResidentName] = useState("");
   const [attendingName, setAttendingName] = useState("");
   const [attendingEmail, setAttendingEmail] = useState("");
+  const [residentEmail, setResidentEmail] = useState("");
   const [transcript, setTranscript] = useState("");
   const [draftPhase, setDraftPhase] = useState<DraftPhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -145,10 +146,14 @@ export default function UploadPage() {
     setError(null);
 
     try {
+      setDraftPhase("transcribing");
+      const nextTranscript = await transcribeAudio();
+
+      setDraftPhase("creating");
       const res = await fetch("/api/sessions/draft-and-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ residentName, attendingName, attendingEmail, transcript: nextTranscript })
+        body: JSON.stringify({ residentName, residentEmail, attendingName, attendingEmail, transcript: nextTranscript })
       });
 
       const data = await res.json();
@@ -182,7 +187,11 @@ export default function UploadPage() {
               <label className="text-sm font-medium">Resident name</label>
               <input className="w-full border rounded p-2" value={residentName} onChange={e=>setResidentName(e.target.value)} required />
             </div>
-            <div className="md:col-span-2">
+            <div>
+              <label className="text-sm font-medium">Resident email</label>
+              <input className="w-full border rounded p-2" value={residentEmail} onChange={e=>setResidentEmail(e.target.value)} required type="email" />
+            </div>
+            <div>
               <label className="text-sm font-medium">Your email</label>
               <input className="w-full border rounded p-2" value={attendingEmail} onChange={e=>setAttendingEmail(e.target.value)} required type="email" />
             </div>
@@ -237,9 +246,12 @@ export default function UploadPage() {
           {draftPhase === "transcribing" && <div className="text-sm text-slate-700">Transcribing…</div>}
           {draftPhase === "creating" && <div className="text-sm text-slate-700">Creating draft…</div>}
 
-        <button disabled={busy} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
-          {busy ? "Creating + emailing..." : "Create draft + email attending"}
-        </button>
+          {error && <div className="text-sm text-red-700">{error}</div>}
+
+          <button disabled={!canDraft || isWorking} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
+            {isWorking ? "Creating + emailing..." : "Create draft + email attending"}
+          </button>
+        </section>
       </form>
     </main>
   );

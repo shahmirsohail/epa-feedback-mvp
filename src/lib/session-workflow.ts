@@ -4,6 +4,7 @@ import { matchEPA, inferEntrustment } from "@/lib/epa";
 import { analyzeWithLLM } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
 import { sendDraftEmail } from "@/lib/email";
+import { getEpas } from "@/lib/epas";
 
 export type CreateSessionInput = {
   residentName: string;
@@ -15,16 +16,25 @@ export type CreateSessionInput = {
 };
 
 export async function createSessionWithDraft(input: CreateSessionInput) {
+  const validEpaIds = new Set(getEpas().map((epa) => epa.id));
+  const validateEpaId = (epaId: string | null | undefined) => {
+    if (!epaId) return null;
+    if (!validEpaIds.has(epaId)) throw new Error(`Invalid EPA ID: ${epaId}`);
+    return epaId;
+  };
+
   const de = deidentify(input.transcript);
 
   const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: input.context || null });
 
   let mappedEpaConfidence = 0.0;
+  let mappedEpaId: string | null = null;
   let entrustment = "Support";
   let entrustmentConfidence = 0.0;
   let draft: FeedbackDraft;
 
   if (llm) {
+    mappedEpaId = validateEpaId(llm.primary_epa_id);
     mappedEpaConfidence = llm.epa_confidence;
     entrustment = llm.entrustment_level;
     entrustmentConfidence = llm.entrustment_confidence;
@@ -46,6 +56,7 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
     };
   } else {
     const epaMatch = await matchEPA(de.deidentified);
+    mappedEpaId = validateEpaId(epaMatch.epaId);
     const ent = inferEntrustment(de.deidentified);
     mappedEpaConfidence = epaMatch.confidence;
     entrustment = ent.level;
@@ -69,7 +80,7 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
       transcriptRaw: input.transcript,
       transcriptDeId: de.deidentified,
       redactionReport: JSON.stringify({ redactions: de.redactions }),
-      mappedEpaId: null,
+      mappedEpaId,
       mappedEpaConfidence,
       entrustment,
       entrustmentConfidence,
@@ -107,4 +118,3 @@ export async function emailSessionDraft(sessionId: string) {
     }
   });
 }
-

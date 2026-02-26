@@ -128,20 +128,22 @@ export default function UploadPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/sessions", {
+      const res = await fetch("/api/sessions/draft-and-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ residentName, residentEmail, attendingName, attendingEmail, context, transcript })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed");
-      window.location.href = `/sessions/${data.id}`;
+      window.location.href = `/sessions/${data.id}?emailed=1`;
     } catch (err: any) {
       setError(err.message || String(err));
     } finally {
       setBusy(false);
     }
   }
+
+  const canDraft = transcript.trim().length >= 20 && !busy;
 
   return (
     <main className="space-y-4">
@@ -240,8 +242,8 @@ export default function UploadPage() {
 
         {error && <div className="text-sm text-red-700">{error}</div>}
 
-        <button disabled={busy} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
-          {busy ? "Creating..." : "Create draft"}
+        <button disabled={!canDraft} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
+          {busy ? "Creating + emailing..." : "Create draft + email attending"}
         </button>
       </form>
     </main>

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
     const session = await prisma.session.findUnique({ where: { id: body.id } });
     if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (session.approved) return NextResponse.json({ error: "Cannot edit after approval" }, { status: 400 });
+    if (session.emailSent) return NextResponse.json({ error: "Cannot edit after email is sent" }, { status: 400 });
 
     await prisma.session.update({
       where: { id: body.id },

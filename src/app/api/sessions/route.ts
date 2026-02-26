@@ -7,22 +7,32 @@ import { buildHeuristicDraft } from "@/lib/draft";
 import { analyzeWithLLM } from "@/lib/llm";
 
 const BodySchema = z.object({
-  residentName: z.string().min(1),
-  residentEmail: z.string().email(),
-  attendingName: z.string().min(1),
-  attendingEmail: z.string().email(),
-  context: z.string().optional(),
-  transcript: z.string().min(20)
+  attendingName: z.string({ required_error: "Attending name is required." }).trim().min(1, "Attending name is required."),
+  attendingEmail: z
+    .string({ required_error: "Attending email is required." })
+    .trim()
+    .email("Attending email must be a valid email address."),
+  residentName: z.string({ required_error: "Resident name is required." }).trim().min(1, "Resident name is required."),
+  transcript: z
+    .string({ required_error: "Transcript is required." })
+    .trim()
+    .min(20, "Transcript must be at least 20 characters.")
 });
 
 export async function POST(req: Request) {
   try {
-    const body = BodySchema.parse(await req.json());
+    const parsed = BodySchema.safeParse(await req.json());
+    if (!parsed.success) {
+      const message = parsed.error.issues[0]?.message ?? "Invalid request body.";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    const body = parsed.data;
 
     const de = deidentify(body.transcript);
 
     // Try LLM analysis first (if OPENAI_API_KEY set), otherwise fall back to heuristics
-    const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: body.context || null });
+    const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: null });
 
     let mappedEpaId: string | null = null;
     let mappedEpaConfidence = 0.0;
@@ -71,10 +81,10 @@ export async function POST(req: Request) {
     const session = await prisma.session.create({
       data: {
         residentName: body.residentName,
-        residentEmail: body.residentEmail,
+        residentEmail: "",
         attendingName: body.attendingName,
         attendingEmail: body.attendingEmail,
-        context: body.context || null,
+        context: null,
         transcriptRaw: body.transcript,
         transcriptDeId: de.deidentified,
         redactionReport: JSON.stringify({ redactions: de.redactions }),

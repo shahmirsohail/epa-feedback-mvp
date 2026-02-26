@@ -4,6 +4,7 @@ import { matchEPA, inferEntrustment } from "@/lib/epa";
 import { analyzeWithLLM } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
 import { sendDraftEmail } from "@/lib/email";
+import { getEpas } from "@/lib/epas";
 
 export type CreateSessionInput = {
   residentName: string;
@@ -23,6 +24,7 @@ export async function createDraftFromTranscript(input: DraftOnlyInput) {
 
   let mappedEpaId: string | null = null;
   let mappedEpaConfidence = 0.0;
+  let mappedEpaId: string | null = null;
   let entrustment = "Support";
   let entrustmentConfidence = 0.0;
   let draft: FeedbackDraft;
@@ -50,6 +52,7 @@ export async function createDraftFromTranscript(input: DraftOnlyInput) {
     };
   } else {
     const epaMatch = await matchEPA(de.deidentified);
+    mappedEpaId = validateEpaId(epaMatch.epaId);
     const ent = inferEntrustment(de.deidentified);
     mappedEpaId = epaMatch.epaId;
     mappedEpaConfidence = epaMatch.confidence;

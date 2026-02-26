@@ -4,6 +4,7 @@ import { matchEPA, inferEntrustment } from "@/lib/epa";
 import { analyzeWithLLM } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
 import { sendDraftEmail } from "@/lib/email";
+import { getEpas } from "@/lib/epas";
 
 export type CreateSessionInput = {
   residentName: string;
@@ -14,35 +15,22 @@ export type CreateSessionInput = {
   transcript: string;
 };
 
-export const SESSION_EMAIL_CREATED = "created" as const;
-export const SESSION_EMAIL_PENDING = "email_pending" as const;
-export const SESSION_EMAIL_FAILED = "email_failed" as const;
-export const SESSION_EMAIL_SENT = "email_sent" as const;
+export type DraftOnlyInput = Omit<CreateSessionInput, "residentEmail">;
 
-export const SESSION_EMAIL_STATES = {
-  created: SESSION_EMAIL_CREATED,
-  emailPending: SESSION_EMAIL_PENDING,
-  emailFailed: SESSION_EMAIL_FAILED,
-  emailSent: SESSION_EMAIL_SENT
-} as const;
-
-export type SessionEmailState =
-  | typeof SESSION_EMAIL_CREATED
-  | typeof SESSION_EMAIL_PENDING
-  | typeof SESSION_EMAIL_FAILED
-  | typeof SESSION_EMAIL_SENT;
-
-export async function createSessionWithDraft(input: CreateSessionInput) {
+export async function createDraftFromTranscript(input: DraftOnlyInput) {
   const de = deidentify(input.transcript);
 
   const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: input.context || null });
 
+  let mappedEpaId: string | null = null;
   let mappedEpaConfidence = 0.0;
+  let mappedEpaId: string | null = null;
   let entrustment = "Support";
   let entrustmentConfidence = 0.0;
   let draft: FeedbackDraft;
 
   if (llm) {
+    mappedEpaId = llm.primary_epa_id;
     mappedEpaConfidence = llm.epa_confidence;
     entrustment = llm.entrustment_level;
     entrustmentConfidence = llm.entrustment_confidence;
@@ -64,7 +52,9 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
     };
   } else {
     const epaMatch = await matchEPA(de.deidentified);
+    mappedEpaId = validateEpaId(epaMatch.epaId);
     const ent = inferEntrustment(de.deidentified);
+    mappedEpaId = epaMatch.epaId;
     mappedEpaConfidence = epaMatch.confidence;
     entrustment = ent.level;
     entrustmentConfidence = ent.confidence;
@@ -77,6 +67,23 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
     });
   }
 
+  const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
+
+  return {
+    deidentifiedTranscript: de.deidentified,
+    redactions: de.redactions,
+    mappedEpaId,
+    mappedEpaConfidence,
+    entrustment,
+    entrustmentConfidence,
+    draft,
+    method
+  };
+}
+
+export async function createSessionWithDraft(input: CreateSessionInput) {
+  const generated = await createDraftFromTranscript(input);
+
   const session = await prisma.session.create({
     data: {
       residentName: input.residentName,
@@ -85,20 +92,17 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
       attendingEmail: input.attendingEmail,
       context: input.context || null,
       transcriptRaw: input.transcript,
-      transcriptDeId: de.deidentified,
-      redactionReport: JSON.stringify({ redactions: de.redactions }),
-      mappedEpaId: null,
-      mappedEpaConfidence,
-      entrustment,
-      entrustmentConfidence,
-      draftJson: JSON.stringify(draft),
-      emailStatus: SESSION_EMAIL_CREATED,
-      emailError: null
+      transcriptDeId: generated.deidentifiedTranscript,
+      redactionReport: JSON.stringify({ redactions: generated.redactions }),
+      mappedEpaId: generated.mappedEpaId,
+      mappedEpaConfidence: generated.mappedEpaConfidence,
+      entrustment: generated.entrustment,
+      entrustmentConfidence: generated.entrustmentConfidence,
+      draftJson: JSON.stringify(generated.draft)
     }
   });
 
-  const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
-  return { session, draft, method };
+  return { session, draft: generated.draft, method: generated.method };
 }
 
 export async function emailSessionDraft(sessionId: string) {
@@ -108,7 +112,7 @@ export async function emailSessionDraft(sessionId: string) {
   await prisma.session.update({
     where: { id: session.id },
     data: {
-      emailStatus: SESSION_EMAIL_PENDING,
+      emailStatus: SESSION_EMAIL_STATES.emailPending,
       emailError: null
     }
   });
@@ -133,46 +137,8 @@ export async function emailSessionDraft(sessionId: string) {
       approvedAt: session.approvedAt ?? now,
       emailSent: true,
       emailSentAt: now,
-      emailStatus: SESSION_EMAIL_SENT,
+      emailStatus: SESSION_EMAIL_STATES.emailSent,
       emailError: null
     }
   });
-}
-
-export async function createAndEmailSessionDraft(input: CreateSessionInput) {
-  const { session, draft, method } = await createSessionWithDraft(input);
-
-  try {
-    await emailSessionDraft(session.id);
-    return {
-      id: session.id,
-      method,
-      draftCreated: true,
-      emailed: true,
-      emailError: null,
-      emailStatus: SESSION_EMAIL_SENT,
-      draft
-    };
-  } catch (error: any) {
-    const emailError = error?.message ?? "Unknown email error";
-    await prisma.session.update({
-      where: { id: session.id },
-      data: {
-        emailSent: false,
-        emailSentAt: null,
-        emailStatus: SESSION_EMAIL_FAILED,
-        emailError
-      }
-    });
-
-    return {
-      id: session.id,
-      method,
-      draftCreated: true,
-      emailed: false,
-      emailError,
-      emailStatus: SESSION_EMAIL_FAILED,
-      draft
-    };
-  }
 }

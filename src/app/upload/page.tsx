@@ -160,7 +160,16 @@ export default function UploadPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed");
-      window.location.href = `/sessions/${data.id}?emailed=1`;
+
+      const params = new URLSearchParams();
+      if (data?.emailed) {
+        params.set("emailed", "1");
+      }
+      if (!data?.emailed) {
+        params.set("email_failed", "1");
+      }
+
+      window.location.href = `/sessions/${data.id}${params.toString() ? `?${params.toString()}` : ""}`;
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Please try again.");
       setDraftPhase("idle");

@@ -8,12 +8,11 @@ export async function POST(req: Request) {
 
   try {
     await emailSessionDraft(id);
+    return NextResponse.redirect(new URL(`/sessions/${id}?emailed=1`, req.url));
   } catch (e: any) {
     if ((e?.message || "").includes("Not found")) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 400 });
+    return NextResponse.redirect(new URL(`/sessions/${id}?email_failed=1`, req.url));
   }
-
-  return NextResponse.redirect(new URL(`/sessions/${id}?emailed=1`, req.url));
 }

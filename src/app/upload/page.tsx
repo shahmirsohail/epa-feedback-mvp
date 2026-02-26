@@ -21,6 +21,7 @@ function pickRecordingMimeType() {
       return mimeType;
     }
   }
+
   return undefined;
 }
 
@@ -30,12 +31,12 @@ export default function UploadPage() {
   const [residentName, setResidentName] = useState("");
   const [attendingName, setAttendingName] = useState("");
   const [attendingEmail, setAttendingEmail] = useState("");
+  const [residentEmail, setResidentEmail] = useState("");
   const [transcript, setTranscript] = useState("");
   const [draftPhase, setDraftPhase] = useState<DraftPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [selectedExampleId, setSelectedExampleId] = useState("");
 
-  // Audio
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -49,7 +50,11 @@ export default function UploadPage() {
   );
 
   useEffect(() => {
-    if (!audioBlob) return;
+    if (!audioBlob) {
+      setAudioUrl(null);
+      return;
+    }
+
     const url = URL.createObjectURL(audioBlob);
     setAudioUrl(url);
     return () => URL.revokeObjectURL(url);
@@ -57,17 +62,22 @@ export default function UploadPage() {
 
   async function startRecording() {
     setError(null);
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = pickRecordingMimeType();
-      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
 
       chunksRef.current = [];
-      mr.ondataavailable = (ev) => {
-        if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
       };
-      mr.onstop = () => {
-        const finalMimeType = mr.mimeType || mimeType || "audio/webm";
+
+      recorder.onstop = () => {
+        const finalMimeType = recorder.mimeType || mimeType || "audio/webm";
         const blob = new Blob(chunksRef.current, { type: finalMimeType });
 
         if (blob.size === 0) {
@@ -80,11 +90,11 @@ export default function UploadPage() {
         const file = new File([blob], `recording.${ext}`, { type: finalMimeType });
         setAudioBlob(blob);
         setAudioFile(file);
-        stream.getTracks().forEach((t) => t.stop());
+        stream.getTracks().forEach((track) => track.stop());
       };
 
-      mr.start(250);
-      mediaRecorderRef.current = mr;
+      recorder.start(250);
+      mediaRecorderRef.current = recorder;
       setRecording(true);
     } catch {
       setError("We could not access your microphone. Please allow microphone access or upload an audio file.");
@@ -92,15 +102,14 @@ export default function UploadPage() {
   }
 
   function stopRecording() {
-    const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== "inactive") {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
       try {
-        mr.requestData();
-      } catch {
-        // no-op
-      }
-      mr.stop();
+        recorder.requestData();
+      } catch {}
+      recorder.stop();
     }
+
     setRecording(false);
   }
 
@@ -133,25 +142,16 @@ export default function UploadPage() {
     setError(null);
 
     try {
-      let nextTranscript = transcript.trim();
-
-      if (!nextTranscript && audioBlob) {
-        setDraftPhase("transcribing");
-        nextTranscript = await transcribeAudio();
-      }
-
-      if (!nextTranscript) {
-        setError("Please either paste a transcript, load an example, or add a recording before creating a draft.");
-        setDraftPhase("idle");
-        return;
-      }
+      setDraftPhase("transcribing");
+      const nextTranscript = await transcribeAudio();
 
       setDraftPhase("creating");
       const res = await fetch("/api/sessions/draft-and-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ residentName, attendingName, attendingEmail, transcript: nextTranscript })
+        body: JSON.stringify({ residentName, residentEmail, attendingName, attendingEmail, transcript: nextTranscript })
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed");
       window.location.href = `/sessions/${data.id}?emailed=1`;
@@ -182,7 +182,11 @@ export default function UploadPage() {
               <label className="text-sm font-medium">Resident name</label>
               <input className="w-full border rounded p-2" value={residentName} onChange={(e) => setResidentName(e.target.value)} required />
             </div>
-            <div className="md:col-span-2">
+            <div>
+              <label className="text-sm font-medium">Resident email</label>
+              <input className="w-full border rounded p-2" value={residentEmail} onChange={e=>setResidentEmail(e.target.value)} required type="email" />
+            </div>
+            <div>
               <label className="text-sm font-medium">Your email</label>
               <input
                 className="w-full border rounded p-2"
@@ -215,10 +219,10 @@ export default function UploadPage() {
                 accept="audio/*"
                 className="hidden"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  setAudioBlob(f);
-                  setAudioFile(f);
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setAudioBlob(file);
+                  setAudioFile(file);
                   setError(null);
                 }}
               />
@@ -268,7 +272,7 @@ export default function UploadPage() {
 
           <label className="text-sm font-medium">Transcript</label>
           <textarea
-            className="w-full border rounded p-2 h-56 font-mono text-xs"
+            className="h-56 w-full rounded border p-2 font-mono text-xs"
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
             placeholder="Paste a transcript, load an example above, or leave blank to auto-fill from audio."
@@ -278,7 +282,9 @@ export default function UploadPage() {
           {draftPhase === "creating" && <div className="text-sm text-slate-700">Creating draft…</div>}
           {error && <div className="text-sm text-red-700">{error}</div>}
 
-          <button disabled={isWorking} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
+          {error && <div className="text-sm text-red-700">{error}</div>}
+
+          <button disabled={!canDraft || isWorking} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
             {isWorking ? "Creating + emailing..." : "Create draft + email attending"}
           </button>
         </section>

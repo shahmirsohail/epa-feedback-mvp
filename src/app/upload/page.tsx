@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { exampleTranscripts } from "@/data/example-transcripts";
 
 function extFromMimeType(mimeType: string | undefined) {
   if (!mimeType) return "webm";
@@ -13,12 +14,7 @@ function extFromMimeType(mimeType: string | undefined) {
 }
 
 function pickRecordingMimeType() {
-  const preferred = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/ogg;codecs=opus"
-  ];
+  const preferred = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
 
   for (const mimeType of preferred) {
     if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(mimeType)) {
@@ -39,6 +35,7 @@ export default function UploadPage() {
   const [transcript, setTranscript] = useState("");
   const [draftPhase, setDraftPhase] = useState<DraftPhase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [selectedExampleId, setSelectedExampleId] = useState("");
 
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -46,6 +43,11 @@ export default function UploadPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+
+  const selectedExample = useMemo(
+    () => exampleTranscripts.find((example) => example.id === selectedExampleId) ?? null,
+    [selectedExampleId]
+  );
 
   useEffect(() => {
     if (!audioBlob) {
@@ -137,12 +139,6 @@ export default function UploadPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    if (!audioBlob) {
-      setError("Please add a recording before creating a draft.");
-      return;
-    }
-
     setError(null);
 
     try {
@@ -169,7 +165,6 @@ export default function UploadPage() {
   }
 
   const isWorking = draftPhase !== "idle";
-  const canDraft = !!audioBlob && !recording;
 
   return (
     <main className="space-y-4">
@@ -181,11 +176,11 @@ export default function UploadPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium">Your name</label>
-              <input className="w-full border rounded p-2" value={attendingName} onChange={e=>setAttendingName(e.target.value)} required />
+              <input className="w-full border rounded p-2" value={attendingName} onChange={(e) => setAttendingName(e.target.value)} required />
             </div>
             <div>
               <label className="text-sm font-medium">Resident name</label>
-              <input className="w-full border rounded p-2" value={residentName} onChange={e=>setResidentName(e.target.value)} required />
+              <input className="w-full border rounded p-2" value={residentName} onChange={(e) => setResidentName(e.target.value)} required />
             </div>
             <div>
               <label className="text-sm font-medium">Resident email</label>
@@ -193,13 +188,19 @@ export default function UploadPage() {
             </div>
             <div>
               <label className="text-sm font-medium">Your email</label>
-              <input className="w-full border rounded p-2" value={attendingEmail} onChange={e=>setAttendingEmail(e.target.value)} required type="email" />
+              <input
+                className="w-full border rounded p-2"
+                value={attendingEmail}
+                onChange={(e) => setAttendingEmail(e.target.value)}
+                required
+                type="email"
+              />
             </div>
           </div>
         </section>
 
         <section className="border rounded p-3 space-y-3">
-          <div className="font-semibold">Step 2: Record</div>
+          <div className="font-semibold">Step 2: Record (optional)</div>
           <div className="flex flex-wrap gap-2 items-center">
             {!recording ? (
               <button type="button" onClick={startRecording} className="px-4 py-2 rounded bg-slate-900 text-white text-sm font-medium">
@@ -230,21 +231,56 @@ export default function UploadPage() {
 
           {audioUrl && <audio controls src={audioUrl} className="w-full" />}
 
-          <div className="text-xs text-slate-600">After you record, the Draft button will unlock in Step 3.</div>
+          <div className="text-xs text-slate-600">If transcript text is empty, we will auto-transcribe your recording in Step 3.</div>
         </section>
 
         <section className="space-y-2 border rounded p-3">
-          <div className="font-semibold">Step 3: Draft</div>
-          <label className="text-sm font-medium">Transcript (auto-filled from audio before draft)</label>
+          <div className="font-semibold">Step 3: Transcript + Draft</div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Load an example transcript</label>
+            <div className="flex flex-wrap gap-2 items-center">
+              <select
+                className="border rounded p-2 text-sm min-w-[260px]"
+                value={selectedExampleId}
+                onChange={(e) => setSelectedExampleId(e.target.value)}
+              >
+                <option value="">Choose an example…</option>
+                {exampleTranscripts.map((example) => (
+                  <option key={example.id} value={example.id}>
+                    {example.label} ({example.expectedEpa})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded border text-sm"
+                onClick={() => {
+                  if (!selectedExample) return;
+                  setTranscript(selectedExample.transcript);
+                  setError(null);
+                }}
+                disabled={!selectedExample}
+              >
+                Use selected example
+              </button>
+            </div>
+            {selectedExample ? (
+              <div className="text-xs text-slate-600">Expected EPA direction: {selectedExample.expectedEpa}</div>
+            ) : null}
+          </div>
+
+          <label className="text-sm font-medium">Transcript</label>
           <textarea
             className="h-56 w-full rounded border p-2 font-mono text-xs"
             value={transcript}
-            onChange={e=>setTranscript(e.target.value)}
-            placeholder="We'll fill this in from your recording. You can edit it before creating the draft."
+            onChange={(e) => setTranscript(e.target.value)}
+            placeholder="Paste a transcript, load an example above, or leave blank to auto-fill from audio."
           />
 
           {draftPhase === "transcribing" && <div className="text-sm text-slate-700">Transcribing…</div>}
           {draftPhase === "creating" && <div className="text-sm text-slate-700">Creating draft…</div>}
+          {error && <div className="text-sm text-red-700">{error}</div>}
 
           {error && <div className="text-sm text-red-700">{error}</div>}
 

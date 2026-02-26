@@ -74,5 +74,9 @@ If `OPENAI_API_KEY` is set, the server will use an LLM to:
 If no key is set, it falls back to keyword/heuristic drafting.
 
 
+
+## Example transcripts for testing
+Use `src/data/example-transcripts.md` for synthetic attending–resident feedback transcripts with suggested expected EPA mappings. You can also load these directly from the `/upload` page via the new “Load an example transcript” dropdown.
+
 ## Editable draft UI (v4)
 On the session page, the draft feedback form is editable (EPA, entrustment, strengths, improvements, next steps, evidence quotes, summary). Editing is locked after approval.

@@ -38,6 +38,8 @@ model Session {
   approvedAt        DateTime?
   emailSent         Boolean  @default(false)
   emailSentAt       DateTime?
+  emailStatus       String   @default("created") // created|email_pending|email_failed|email_sent
+  emailError        String?
 
   epa EPA? @relation(fields: [mappedEpaId], references: [id])
 }

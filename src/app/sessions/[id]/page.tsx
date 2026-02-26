@@ -8,7 +8,13 @@ function prettyJson(s: string) {
   try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
 }
 
-export default async function SessionPage({ params }: { params: { id: string }}) {
+export default async function SessionPage({
+  params,
+  searchParams
+}: {
+  params: { id: string };
+  searchParams?: { emailed?: string };
+}) {
   const session = await prisma.session.findUnique({
     where: { id: params.id }
   });
@@ -18,6 +24,7 @@ export default async function SessionPage({ params }: { params: { id: string }})
   const draft = JSON.parse(session.draftJson);
   const meta = draft?.meta || {};
   const method = meta.method || "heuristic";
+  const justEmailed = searchParams?.emailed === "1";
 
   return (
     <main className="space-y-6">
@@ -47,24 +54,17 @@ export default async function SessionPage({ params }: { params: { id: string }})
             </div>
           )}
           <div><span className="font-medium">Entrustment:</span> {session.entrustment} <span className="text-xs text-slate-600">(conf {Number(session.entrustmentConfidence).toFixed(2)})</span></div>
-          <div className="text-xs text-slate-600">
-            Status: {session.approved ? (session.emailSent ? "Approved + emailed" : "Approved") : "Draft (not approved)"}
-          </div>
 
-          <div className="pt-2 flex gap-2 flex-wrap">
-            {!session.approved && (
-              <form action="/api/sessions/approve" method="POST">
-                <input type="hidden" name="id" value={session.id} />
-                <button className="px-3 py-1.5 rounded bg-emerald-700 text-white text-sm">Approve</button>
-              </form>
-            )}
-            {session.approved && !session.emailSent && (
-              <form action="/api/sessions/email" method="POST">
-                <input type="hidden" name="id" value={session.id} />
-                <button className="px-3 py-1.5 rounded bg-blue-700 text-white text-sm">Send EPA email to attending</button>
-              </form>
-            )}
-          </div>
+          {session.emailSent ? (
+            <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800">
+              {justEmailed ? "Draft emailed successfully. " : "Draft already emailed. "}
+              {session.emailSentAt ? `Sent ${new Date(session.emailSentAt).toLocaleString()}.` : ""}
+            </div>
+          ) : (
+            <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+              Draft has not been emailed yet (legacy session).
+            </div>
+          )}
         </div>
       </div>
 
@@ -87,7 +87,7 @@ export default async function SessionPage({ params }: { params: { id: string }})
         initialEntrustment={session.entrustment as any}
         initialEntrustmentConfidence={session.entrustmentConfidence}
         initialDraft={draft}
-        disabled={session.approved}
+        disabled={session.emailSent}
       />
 
       <details className="border rounded p-3">

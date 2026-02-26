@@ -3,12 +3,16 @@ import { z } from "zod";
 import { createSessionWithDraft } from "@/lib/session-workflow";
 
 const BodySchema = z.object({
-  residentName: z.string().min(1),
-  residentEmail: z.string().email(),
-  attendingName: z.string().min(1),
-  attendingEmail: z.string().email(),
-  context: z.string().optional(),
-  transcript: z.string().min(20)
+  attendingName: z.string({ required_error: "Attending name is required." }).trim().min(1, "Attending name is required."),
+  attendingEmail: z
+    .string({ required_error: "Attending email is required." })
+    .trim()
+    .email("Attending email must be a valid email address."),
+  residentName: z.string({ required_error: "Resident name is required." }).trim().min(1, "Resident name is required."),
+  transcript: z
+    .string({ required_error: "Transcript is required." })
+    .trim()
+    .min(20, "Transcript must be at least 20 characters.")
 });
 
 export async function POST(req: Request) {

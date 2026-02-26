@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { deidentify } from "@/lib/deid";
-import { matchEPA, inferEntrustment } from "@/lib/epa";
-import { buildHeuristicDraft } from "@/lib/draft";
-import { analyzeWithLLM } from "@/lib/llm";
+import { createSessionWithDraft } from "@/lib/session-workflow";
 
 const BodySchema = z.object({
   attendingName: z.string({ required_error: "Attending name is required." }).trim().min(1, "Attending name is required."),

@@ -35,6 +35,7 @@ export default function UploadPage() {
   const [transcript, setTranscript] = useState("");
   const [draftPhase, setDraftPhase] = useState<DraftPhase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [selectedExampleId, setSelectedExampleId] = useState("");
 
   const [recording, setRecording] = useState(false);
@@ -62,6 +63,7 @@ export default function UploadPage() {
 
   async function startRecording() {
     setError(null);
+    setSuccess(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -160,7 +162,10 @@ export default function UploadPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed");
-      window.location.href = `/sessions/${data.id}?emailed=1`;
+      setSuccess(`Draft generated (${data.method}) and emailed to ${attendingEmail}.`);
+      setTranscript("");
+      setAudioBlob(null);
+      setAudioFile(null);
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Please try again.");
       setDraftPhase("idle");
@@ -288,6 +293,7 @@ export default function UploadPage() {
           {draftPhase === "transcribing" && <div className="text-sm text-slate-700">Transcribing…</div>}
           {draftPhase === "creating" && <div className="text-sm text-slate-700">Creating draft…</div>}
           {error && <div className="text-sm text-red-700">{error}</div>}
+          {success && <div className="text-sm text-emerald-700">{success}</div>}
 
           <button disabled={!canDraft || isWorking} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
             {isWorking ? "Creating + emailing..." : "Create draft + email attending"}

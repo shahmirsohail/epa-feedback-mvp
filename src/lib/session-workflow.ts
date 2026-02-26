@@ -14,17 +14,21 @@ export type CreateSessionInput = {
   transcript: string;
 };
 
-export async function createSessionWithDraft(input: CreateSessionInput) {
+export type DraftOnlyInput = Omit<CreateSessionInput, "residentEmail">;
+
+export async function createDraftFromTranscript(input: DraftOnlyInput) {
   const de = deidentify(input.transcript);
 
   const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: input.context || null });
 
+  let mappedEpaId: string | null = null;
   let mappedEpaConfidence = 0.0;
   let entrustment = "Support";
   let entrustmentConfidence = 0.0;
   let draft: FeedbackDraft;
 
   if (llm) {
+    mappedEpaId = llm.primary_epa_id;
     mappedEpaConfidence = llm.epa_confidence;
     entrustment = llm.entrustment_level;
     entrustmentConfidence = llm.entrustment_confidence;
@@ -47,6 +51,7 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
   } else {
     const epaMatch = await matchEPA(de.deidentified);
     const ent = inferEntrustment(de.deidentified);
+    mappedEpaId = epaMatch.epaId;
     mappedEpaConfidence = epaMatch.confidence;
     entrustment = ent.level;
     entrustmentConfidence = ent.confidence;
@@ -59,6 +64,23 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
     });
   }
 
+  const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
+
+  return {
+    deidentifiedTranscript: de.deidentified,
+    redactions: de.redactions,
+    mappedEpaId,
+    mappedEpaConfidence,
+    entrustment,
+    entrustmentConfidence,
+    draft,
+    method
+  };
+}
+
+export async function createSessionWithDraft(input: CreateSessionInput) {
+  const generated = await createDraftFromTranscript(input);
+
   const session = await prisma.session.create({
     data: {
       residentName: input.residentName,
@@ -67,17 +89,17 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
       attendingEmail: input.attendingEmail,
       context: input.context || null,
       transcriptRaw: input.transcript,
-      transcriptDeId: de.deidentified,
-      redactionReport: JSON.stringify({ redactions: de.redactions }),
-      mappedEpaId: null,
-      mappedEpaConfidence,
-      entrustment,
-      entrustmentConfidence,
-      draftJson: JSON.stringify(draft)
+      transcriptDeId: generated.deidentifiedTranscript,
+      redactionReport: JSON.stringify({ redactions: generated.redactions }),
+      mappedEpaId: generated.mappedEpaId,
+      mappedEpaConfidence: generated.mappedEpaConfidence,
+      entrustment: generated.entrustment,
+      entrustmentConfidence: generated.entrustmentConfidence,
+      draftJson: JSON.stringify(generated.draft)
     }
   });
 
-  return { session, draft, method: llm ? "llm" : "heuristic" as const };
+  return { session, draft: generated.draft, method: generated.method };
 }
 
 export async function emailSessionDraft(sessionId: string) {
@@ -107,4 +129,3 @@ export async function emailSessionDraft(sessionId: string) {
     }
   });
 }
-

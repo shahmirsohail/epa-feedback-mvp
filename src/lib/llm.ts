@@ -5,7 +5,10 @@ import { getEpas } from "./epas";
 
 const AnalysisSchema = z.object({
   primary_epa_id: z.string().nullable(),
-  secondary_epa_ids: z.array(z.string()).max(2).default([]),
+  secondary_epa_ids: z.preprocess(
+    (value) => (value == null ? [] : value),
+    z.array(z.string()).max(2)
+  ),
   epa_confidence: z.number().min(0).max(1),
   epa_rationale: z.string().max(400),
 

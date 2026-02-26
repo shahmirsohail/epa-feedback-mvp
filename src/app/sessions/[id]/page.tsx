@@ -27,7 +27,7 @@ export default async function SessionPage({ params }: { params: { id: string }})
           <div className="text-sm text-slate-600">{new Date(session.createdAt).toLocaleString()}</div>
           <div className="mt-2 text-sm">
             <div><span className="font-medium">Resident:</span> {session.residentName} <span className="text-slate-600">({session.residentEmail})</span></div>
-            <div><span className="font-medium">Attending:</span> {session.attendingName}</div>
+            <div><span className="font-medium">Attending:</span> {session.attendingName} <span className="text-slate-600">({session.attendingEmail})</span></div>
             {session.context && <div><span className="font-medium">Context:</span> {session.context}</div>}
           </div>
         </div>
@@ -61,7 +61,7 @@ export default async function SessionPage({ params }: { params: { id: string }})
             {session.approved && !session.emailSent && (
               <form action="/api/sessions/email" method="POST">
                 <input type="hidden" name="id" value={session.id} />
-                <button className="px-3 py-1.5 rounded bg-blue-700 text-white text-sm">Send email</button>
+                <button className="px-3 py-1.5 rounded bg-blue-700 text-white text-sm">Send EPA email to attending</button>
               </form>
             )}
           </div>

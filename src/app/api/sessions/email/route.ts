@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const appBaseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
 
   await sendDraftEmail({
-    to: session.residentEmail,
+    to: session.attendingEmail,
     residentName: session.residentName,
     attendingName: session.attendingName,
     sessionId: session.id,

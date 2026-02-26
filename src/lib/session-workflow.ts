@@ -14,6 +14,24 @@ export type CreateSessionInput = {
   transcript: string;
 };
 
+export const SESSION_EMAIL_CREATED = "created" as const;
+export const SESSION_EMAIL_PENDING = "email_pending" as const;
+export const SESSION_EMAIL_FAILED = "email_failed" as const;
+export const SESSION_EMAIL_SENT = "email_sent" as const;
+
+export const SESSION_EMAIL_STATES = {
+  created: SESSION_EMAIL_CREATED,
+  emailPending: SESSION_EMAIL_PENDING,
+  emailFailed: SESSION_EMAIL_FAILED,
+  emailSent: SESSION_EMAIL_SENT
+} as const;
+
+export type SessionEmailState =
+  | typeof SESSION_EMAIL_CREATED
+  | typeof SESSION_EMAIL_PENDING
+  | typeof SESSION_EMAIL_FAILED
+  | typeof SESSION_EMAIL_SENT;
+
 export async function createSessionWithDraft(input: CreateSessionInput) {
   const de = deidentify(input.transcript);
 
@@ -73,16 +91,27 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
       mappedEpaConfidence,
       entrustment,
       entrustmentConfidence,
-      draftJson: JSON.stringify(draft)
+      draftJson: JSON.stringify(draft),
+      emailStatus: SESSION_EMAIL_STATES.created,
+      emailError: null
     }
   });
 
-  return { session, draft, method: llm ? "llm" : "heuristic" as const };
+  const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
+  return { session, draft, method };
 }
 
 export async function emailSessionDraft(sessionId: string) {
   const session = await prisma.session.findUnique({ where: { id: sessionId } });
   if (!session) throw new Error("Not found");
+
+  await prisma.session.update({
+    where: { id: session.id },
+    data: {
+      emailStatus: SESSION_EMAIL_STATES.emailPending,
+      emailError: null
+    }
+  });
 
   const draft = JSON.parse(session.draftJson) as FeedbackDraft;
   const appBaseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
@@ -103,8 +132,47 @@ export async function emailSessionDraft(sessionId: string) {
       approved: true,
       approvedAt: session.approvedAt ?? now,
       emailSent: true,
-      emailSentAt: now
+      emailSentAt: now,
+      emailStatus: SESSION_EMAIL_STATES.emailSent,
+      emailError: null
     }
   });
 }
 
+export async function createAndEmailSessionDraft(input: CreateSessionInput) {
+  const { session, draft, method } = await createSessionWithDraft(input);
+
+  try {
+    await emailSessionDraft(session.id);
+    return {
+      id: session.id,
+      method,
+      draftCreated: true,
+      emailed: true,
+      emailError: null,
+      emailStatus: SESSION_EMAIL_STATES.emailSent,
+      draft
+    };
+  } catch (error: any) {
+    const emailError = error?.message ?? "Unknown email error";
+    await prisma.session.update({
+      where: { id: session.id },
+      data: {
+        emailSent: false,
+        emailSentAt: null,
+        emailStatus: SESSION_EMAIL_STATES.emailFailed,
+        emailError
+      }
+    });
+
+    return {
+      id: session.id,
+      method,
+      draftCreated: true,
+      emailed: false,
+      emailError,
+      emailStatus: SESSION_EMAIL_STATES.emailFailed,
+      draft
+    };
+  }
+}

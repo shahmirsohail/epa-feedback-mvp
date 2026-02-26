@@ -14,26 +14,21 @@ export type CreateSessionInput = {
   transcript: string;
 };
 
-export const SESSION_EMAIL_STATES = {
-  created: "created",
-  emailPending: "email_pending",
-  emailFailed: "email_failed",
-  emailSent: "email_sent"
-} as const;
+export type DraftOnlyInput = Omit<CreateSessionInput, "residentEmail">;
 
-export type SessionEmailState = (typeof SESSION_EMAIL_STATES)[keyof typeof SESSION_EMAIL_STATES];
-
-export async function createSessionWithDraft(input: CreateSessionInput) {
+export async function createDraftFromTranscript(input: DraftOnlyInput) {
   const de = deidentify(input.transcript);
 
   const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: input.context || null });
 
+  let mappedEpaId: string | null = null;
   let mappedEpaConfidence = 0.0;
   let entrustment = "Support";
   let entrustmentConfidence = 0.0;
   let draft: FeedbackDraft;
 
   if (llm) {
+    mappedEpaId = llm.primary_epa_id;
     mappedEpaConfidence = llm.epa_confidence;
     entrustment = llm.entrustment_level;
     entrustmentConfidence = llm.entrustment_confidence;
@@ -56,6 +51,7 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
   } else {
     const epaMatch = await matchEPA(de.deidentified);
     const ent = inferEntrustment(de.deidentified);
+    mappedEpaId = epaMatch.epaId;
     mappedEpaConfidence = epaMatch.confidence;
     entrustment = ent.level;
     entrustmentConfidence = ent.confidence;
@@ -68,6 +64,23 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
     });
   }
 
+  const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
+
+  return {
+    deidentifiedTranscript: de.deidentified,
+    redactions: de.redactions,
+    mappedEpaId,
+    mappedEpaConfidence,
+    entrustment,
+    entrustmentConfidence,
+    draft,
+    method
+  };
+}
+
+export async function createSessionWithDraft(input: CreateSessionInput) {
+  const generated = await createDraftFromTranscript(input);
+
   const session = await prisma.session.create({
     data: {
       residentName: input.residentName,
@@ -76,20 +89,17 @@ export async function createSessionWithDraft(input: CreateSessionInput) {
       attendingEmail: input.attendingEmail,
       context: input.context || null,
       transcriptRaw: input.transcript,
-      transcriptDeId: de.deidentified,
-      redactionReport: JSON.stringify({ redactions: de.redactions }),
-      mappedEpaId: null,
-      mappedEpaConfidence,
-      entrustment,
-      entrustmentConfidence,
-      draftJson: JSON.stringify(draft),
-      emailStatus: SESSION_EMAIL_STATES.created,
-      emailError: null
+      transcriptDeId: generated.deidentifiedTranscript,
+      redactionReport: JSON.stringify({ redactions: generated.redactions }),
+      mappedEpaId: generated.mappedEpaId,
+      mappedEpaConfidence: generated.mappedEpaConfidence,
+      entrustment: generated.entrustment,
+      entrustmentConfidence: generated.entrustmentConfidence,
+      draftJson: JSON.stringify(generated.draft)
     }
   });
 
-  const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
-  return { session, draft, method };
+  return { session, draft: generated.draft, method: generated.method };
 }
 
 export async function emailSessionDraft(sessionId: string) {
@@ -128,42 +138,4 @@ export async function emailSessionDraft(sessionId: string) {
       emailError: null
     }
   });
-}
-
-export async function createAndEmailSessionDraft(input: CreateSessionInput) {
-  const { session, draft, method } = await createSessionWithDraft(input);
-
-  try {
-    await emailSessionDraft(session.id);
-    return {
-      id: session.id,
-      method,
-      draftCreated: true,
-      emailed: true,
-      emailError: null,
-      emailStatus: SESSION_EMAIL_STATES.emailSent,
-      draft
-    };
-  } catch (error: any) {
-    const emailError = error?.message ?? "Unknown email error";
-    await prisma.session.update({
-      where: { id: session.id },
-      data: {
-        emailSent: false,
-        emailSentAt: null,
-        emailStatus: SESSION_EMAIL_STATES.emailFailed,
-        emailError
-      }
-    });
-
-    return {
-      id: session.id,
-      method,
-      draftCreated: true,
-      emailed: false,
-      emailError,
-      emailStatus: SESSION_EMAIL_STATES.emailFailed,
-      draft
-    };
-  }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createAndEmailSessionDraft } from "@/lib/session-workflow";
+import { createDraftFromTranscript } from "@/lib/session-workflow";
+import { sendDraftEmail } from "@/lib/email";
 
 const BodySchema = z.object({
   residentName: z.string().min(1),
@@ -14,16 +15,15 @@ const BodySchema = z.object({
 export async function POST(req: Request) {
   try {
     const body = BodySchema.parse(await req.json());
-    const result = await createAndEmailSessionDraft(body);
-
-    return NextResponse.json({
-      id: result.id,
-      method: result.method,
-      draftCreated: result.draftCreated,
-      emailed: result.emailed,
-      emailError: result.emailError,
-      emailStatus: result.emailStatus
+    const generated = await createDraftFromTranscript(body);
+    await sendDraftEmail({
+      to: body.attendingEmail,
+      residentName: body.residentName,
+      attendingName: body.attendingName,
+      draft: generated.draft
     });
+
+    return NextResponse.json({ method: generated.method, emailed: true, epaId: generated.mappedEpaId });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 400 });
   }

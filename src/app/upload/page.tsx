@@ -135,21 +135,14 @@ export default function UploadPage() {
     setError(null);
 
     try {
-      let nextTranscript = transcript.trim();
-      if (!nextTranscript) {
-        setDraftPhase("transcribing");
-        nextTranscript = await transcribeAudio();
-      }
-
-      setDraftPhase("creating");
-      const res = await fetch("/api/sessions", {
+      const res = await fetch("/api/sessions/draft-and-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ residentName, attendingName, attendingEmail, transcript: nextTranscript })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "We could not create your draft. Please try again.");
-      window.location.href = `/sessions/${data.id}`;
+      if (!res.ok) throw new Error(data?.error || "Failed");
+      window.location.href = `/sessions/${data.id}?emailed=1`;
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Please try again.");
       setDraftPhase("idle");
@@ -233,12 +226,9 @@ export default function UploadPage() {
           {draftPhase === "transcribing" && <div className="text-sm text-slate-700">Transcribing…</div>}
           {draftPhase === "creating" && <div className="text-sm text-slate-700">Creating draft…</div>}
 
-          {error && <div className="text-sm text-red-700">{error}</div>}
-
-          <button disabled={!canDraft || isWorking} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
-            Draft
-          </button>
-        </section>
+        <button disabled={busy} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">
+          {busy ? "Creating + emailing..." : "Create draft + email attending"}
+        </button>
       </form>
     </main>
   );

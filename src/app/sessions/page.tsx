@@ -42,7 +42,7 @@ export default async function SessionsPage() {
                 <td className="p-2">{s.mappedEpaId ?? getEpaFromDraft(s.draftJson)}</td>
                 <td className="p-2">{s.entrustment}</td>
                 <td className="p-2">
-                  {s.approved ? (s.emailSent ? "Approved + emailed" : "Approved") : "Draft"}
+                  {s.emailSent ? "Emailed" : "Draft"}
                 </td>
               </tr>
             ))}

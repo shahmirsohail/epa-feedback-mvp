@@ -1,32 +1,19 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { sendDraftEmail } from "@/lib/email";
+import { emailSessionDraft } from "@/lib/session-workflow";
 
 export async function POST(req: Request) {
   const form = await req.formData();
   const id = String(form.get("id") || "");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  const session = await prisma.session.findUnique({ where: { id } });
-  if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!session.approved) return NextResponse.json({ error: "Session not approved" }, { status: 400 });
+  try {
+    await emailSessionDraft(id);
+  } catch (e: any) {
+    if ((e?.message || "").includes("Not found")) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 400 });
+  }
 
-  const draft = JSON.parse(session.draftJson);
-  const appBaseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
-
-  await sendDraftEmail({
-    to: session.attendingEmail,
-    residentName: session.residentName,
-    attendingName: session.attendingName,
-    sessionId: session.id,
-    draft,
-    appBaseUrl
-  });
-
-  await prisma.session.update({
-    where: { id },
-    data: { emailSent: true, emailSentAt: new Date() }
-  });
-
-  return NextResponse.redirect(new URL(`/sessions/${id}`, req.url));
+  return NextResponse.redirect(new URL(`/sessions/${id}?emailed=1`, req.url));
 }

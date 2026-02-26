@@ -111,7 +111,7 @@ export default function DraftEditor(props: {
 
       {props.disabled && (
         <div className="text-sm text-amber-800 bg-amber-50 border rounded p-2">
-          This session is already approved, so editing is locked.
+          This session has already been emailed, so editing is locked.
         </div>
       )}
       {err && <div className="text-sm text-red-700">{err}</div>}

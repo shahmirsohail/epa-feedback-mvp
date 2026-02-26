@@ -142,14 +142,20 @@ export default function UploadPage() {
     setError(null);
 
     try {
-      setDraftPhase("transcribing");
-      const nextTranscript = await transcribeAudio();
+      const trimmedTranscript = transcript.trim();
+      const nextTranscript = trimmedTranscript
+        ? trimmedTranscript
+        : (() => {
+            setDraftPhase("transcribing");
+            return transcribeAudio();
+          })();
+      const resolvedTranscript = await nextTranscript;
 
       setDraftPhase("creating");
       const res = await fetch("/api/sessions/draft-and-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ residentName, residentEmail, attendingName, attendingEmail, transcript: nextTranscript })
+        body: JSON.stringify({ residentName, residentEmail, attendingName, attendingEmail, transcript: resolvedTranscript })
       });
 
       const data = await res.json();
@@ -165,6 +171,7 @@ export default function UploadPage() {
   }
 
   const isWorking = draftPhase !== "idle";
+  const canDraft = Boolean(attendingName && attendingEmail && residentName && residentEmail && (transcript.trim() || audioBlob));
 
   return (
     <main className="space-y-4">
@@ -280,8 +287,6 @@ export default function UploadPage() {
 
           {draftPhase === "transcribing" && <div className="text-sm text-slate-700">Transcribing…</div>}
           {draftPhase === "creating" && <div className="text-sm text-slate-700">Creating draft…</div>}
-          {error && <div className="text-sm text-red-700">{error}</div>}
-
           {error && <div className="text-sm text-red-700">{error}</div>}
 
           <button disabled={!canDraft || isWorking} className="px-4 py-2 rounded bg-emerald-700 text-white disabled:opacity-50">

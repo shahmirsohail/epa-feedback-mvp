@@ -24,6 +24,7 @@ model Session {
   residentName      String
   residentEmail     String
   attendingName     String
+  attendingEmail    String
   context           String?  // optional: ED/CTU/etc
   transcriptRaw     String
   transcriptDeId    String

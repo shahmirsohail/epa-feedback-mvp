@@ -34,10 +34,10 @@ export async function sendDraftEmail(opts: {
   const link = `${opts.appBaseUrl.replace(/\/$/, "")}/sessions/${opts.sessionId}`;
 
   const text = [
-    `Hi ${opts.residentName},`,
+    `Hi ${opts.attendingName},`,
     ``,
-    `This is a draft feedback form generated from a teaching/feedback conversation with ${opts.attendingName}.`,
-    `Please note: This draft is provided for transparency and is subject to attending review/edits.`,
+    `This is a pre-filled EPA generated from a teaching/feedback conversation with ${opts.residentName}.`,
+    `Please review and edit as needed before sharing it with the resident.`,
     ``,
     `EPA: ${opts.draft.epaId ?? "Not confidently matched"}`,
     `Entrustment: ${opts.draft.entrustment}`,
@@ -53,7 +53,7 @@ export async function sendDraftEmail(opts: {
     ``,
     `Review link: ${link}`,
     ``,
-    `— ${opts.attendingName}`
+    `— EPA`
   ].join("\n");
 
   await transporter.sendMail({

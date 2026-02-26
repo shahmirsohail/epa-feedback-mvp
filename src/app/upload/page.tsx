@@ -32,6 +32,7 @@ export default function UploadPage() {
   const [residentName, setResidentName] = useState("");
   const [residentEmail, setResidentEmail] = useState("");
   const [attendingName, setAttendingName] = useState("");
+  const [attendingEmail, setAttendingEmail] = useState("");
   const [context, setContext] = useState("");
   const [transcript, setTranscript] = useState("");
   const [busy, setBusy] = useState(false);
@@ -130,7 +131,7 @@ export default function UploadPage() {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ residentName, residentEmail, attendingName, context, transcript })
+        body: JSON.stringify({ residentName, residentEmail, attendingName, attendingEmail, context, transcript })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed");
@@ -167,6 +168,10 @@ export default function UploadPage() {
           <div>
             <label className="text-sm font-medium">Attending name</label>
             <input className="w-full border rounded p-2" value={attendingName} onChange={e=>setAttendingName(e.target.value)} required />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Attending email</label>
+            <input className="w-full border rounded p-2" value={attendingEmail} onChange={e=>setAttendingEmail(e.target.value)} required type="email" />
           </div>
           <div>
             <label className="text-sm font-medium">Context (optional)</label>

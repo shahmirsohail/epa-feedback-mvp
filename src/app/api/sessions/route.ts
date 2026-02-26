@@ -10,6 +10,7 @@ const BodySchema = z.object({
   residentName: z.string().min(1),
   residentEmail: z.string().email(),
   attendingName: z.string().min(1),
+  attendingEmail: z.string().email(),
   context: z.string().optional(),
   transcript: z.string().min(20)
 });
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
         residentName: body.residentName,
         residentEmail: body.residentEmail,
         attendingName: body.attendingName,
+        attendingEmail: body.attendingEmail,
         context: body.context || null,
         transcriptRaw: body.transcript,
         transcriptDeId: de.deidentified,

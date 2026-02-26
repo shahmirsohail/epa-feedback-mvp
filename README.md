@@ -1,4 +1,4 @@
-# EPA Feedback MVP (Web App)
+# EPA (Web App)
 
 This is a runnable prototype that:
 - takes a pasted attending–resident feedback transcript
@@ -6,7 +6,7 @@ This is a runnable prototype that:
 - maps to a closed set of EPAs (FOD/COD seed set)
 - proposes an entrustment level (Intervention/Direction/Support/Autonomy/Excellence)
 - generates a **draft** feedback form
-- requires **attending approval** before emailing the draft to the resident
+- requires **attending approval** before emailing the pre-filled EPA to the attending
 
 > ⚠️ Do **not** use for real patient data without institutional approval, secure hosting, consent, and a stronger PHI pipeline.
 

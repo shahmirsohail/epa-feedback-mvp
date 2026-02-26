@@ -7,7 +7,7 @@ export default function Page() {
         <li>Automatically de-identifies common PHI patterns (best-effort).</li>
         <li>Maps the session to a closed set of EPAs (FOD/COD) and proposes an entrustment level.</li>
         <li>Generates a draft feedback form for attending review.</li>
-        <li>After approval, emails the draft to the resident.</li>
+        <li>After approval, emails the pre-filled EPA to the attending.</li>
       </ul>
       <div className="p-4 rounded border bg-slate-50">
         <div className="font-semibold">Start here</div>

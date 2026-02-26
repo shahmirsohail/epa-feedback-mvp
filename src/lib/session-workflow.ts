@@ -6,6 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { sendDraftEmail } from "@/lib/email";
 import { getEpas } from "@/lib/epas";
 
+const SESSION_EMAIL_STATES = {
+  emailPending: "email_pending",
+  emailSent: "email_sent"
+} as const;
+
 export type CreateSessionInput = {
   residentName: string;
   residentEmail: string;
@@ -24,7 +29,6 @@ export async function createDraftFromTranscript(input: DraftOnlyInput) {
 
   let mappedEpaId: string | null = null;
   let mappedEpaConfidence = 0.0;
-  let mappedEpaId: string | null = null;
   let entrustment = "Support";
   let entrustmentConfidence = 0.0;
   let draft: FeedbackDraft;
@@ -54,7 +58,6 @@ export async function createDraftFromTranscript(input: DraftOnlyInput) {
     const epaMatch = await matchEPA(de.deidentified);
     mappedEpaId = validateEpaId(epaMatch.epaId);
     const ent = inferEntrustment(de.deidentified);
-    mappedEpaId = epaMatch.epaId;
     mappedEpaConfidence = epaMatch.confidence;
     entrustment = ent.level;
     entrustmentConfidence = ent.confidence;
@@ -141,4 +144,12 @@ export async function emailSessionDraft(sessionId: string) {
       emailError: null
     }
   });
+}
+
+
+function validateEpaId(epaId: string | null | undefined): string | null {
+  const epas = getEpas();
+  if (!epaId) return null;
+  const exists = epas.some((epa) => epa.id === epaId);
+  return exists ? epaId : null;
 }

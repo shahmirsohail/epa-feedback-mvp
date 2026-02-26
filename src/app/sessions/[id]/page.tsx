@@ -13,7 +13,7 @@ export default async function SessionPage({
   searchParams
 }: {
   params: { id: string };
-  searchParams?: { emailed?: string };
+  searchParams?: { emailed?: string; email_failed?: string };
 }) {
   const session = await prisma.session.findUnique({
     where: { id: params.id }
@@ -25,6 +25,7 @@ export default async function SessionPage({
   const meta = draft?.meta || {};
   const method = meta.method || "heuristic";
   const justEmailed = searchParams?.emailed === "1";
+  const justFailedEmail = searchParams?.email_failed === "1";
 
   return (
     <main className="space-y-6">
@@ -55,14 +56,27 @@ export default async function SessionPage({
           )}
           <div><span className="font-medium">Entrustment:</span> {session.entrustment} <span className="text-xs text-slate-600">(conf {Number(session.entrustmentConfidence).toFixed(2)})</span></div>
 
-          {session.emailSent ? (
+          {session.emailStatus === "email_sent" ? (
             <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800">
               {justEmailed ? "Draft emailed successfully. " : "Draft already emailed. "}
               {session.emailSentAt ? `Sent ${new Date(session.emailSentAt).toLocaleString()}.` : ""}
             </div>
+          ) : session.emailStatus === "email_failed" ? (
+            <div className="mt-2 rounded border border-red-200 bg-red-50 p-2 text-xs text-red-800 space-y-2">
+              <div>{justFailedEmail ? "Draft created, but email failed to send." : "Email send failed for this draft."}</div>
+              {session.emailError ? <div className="text-red-700">Error: {session.emailError}</div> : null}
+              <form action="/api/sessions/email" method="POST">
+                <input type="hidden" name="id" value={session.id} />
+                <button className="px-2 py-1 rounded bg-red-700 text-white" type="submit">Retry email send</button>
+              </form>
+            </div>
           ) : (
-            <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-              Draft has not been emailed yet (legacy session).
+            <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 space-y-2">
+              <div>Draft is ready but has not been emailed yet.</div>
+              <form action="/api/sessions/email" method="POST">
+                <input type="hidden" name="id" value={session.id} />
+                <button className="px-2 py-1 rounded bg-amber-700 text-white" type="submit">Send draft email</button>
+              </form>
             </div>
           )}
         </div>

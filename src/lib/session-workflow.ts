@@ -106,6 +106,14 @@ export async function emailSessionDraft(sessionId: string) {
   const session = await prisma.session.findUnique({ where: { id: sessionId } });
   if (!session) throw new Error("Not found");
 
+  await prisma.session.update({
+    where: { id: session.id },
+    data: {
+      emailStatus: SESSION_EMAIL_STATES.emailPending,
+      emailError: null
+    }
+  });
+
   const draft = JSON.parse(session.draftJson) as FeedbackDraft;
   const appBaseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
 
@@ -125,7 +133,9 @@ export async function emailSessionDraft(sessionId: string) {
       approved: true,
       approvedAt: session.approvedAt ?? now,
       emailSent: true,
-      emailSentAt: now
+      emailSentAt: now,
+      emailStatus: SESSION_EMAIL_STATES.emailSent,
+      emailError: null
     }
   });
 }

@@ -20,7 +20,6 @@ const AnalysisSchema = z.object({
   next_steps: z.array(z.string()).min(0).max(6),
   evidence_quotes: z.array(z.string()).min(0).max(6),
   summary_comment: z.string().min(20).max(1200),
-  insufficient_evidence: z.boolean(),
   insufficient_evidence_reason: z.string().max(400)
 });
 
@@ -110,7 +109,6 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     '  "next_steps": string[] (0-6 concrete next-time steps),',
     '  "evidence_quotes": string[] (0-6 short verbatim excerpts from transcript supporting your suggestions),',
     '  "summary_comment": string (20-1200 chars; fair, specific, non-judgmental).',
-    '  "insufficient_evidence": boolean,',
     '  "insufficient_evidence_reason": string (<=400 chars; explain what was missing).',
     "}",
     "",

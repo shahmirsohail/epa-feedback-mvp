@@ -35,7 +35,7 @@ EPA definitions are now loaded from `src/data/epas.json` (no EPA seeding needed)
 ```bash
 npm run dev
 ```
-Open http://localhost:3000
+Open http://localhost:3000 (it now redirects straight to `/upload` for a one-screen flow).
 
 ### No-database mode for quick draft+email
 The `/upload` flow now works without a Prisma/SQLite database. It generates the draft directly from transcript/audio and emails the attending immediately.
@@ -52,6 +52,8 @@ To send emails, edit `.env` and set:
 - APP_BASE_URL
 
 If you don't configure email, the app will still generate drafts but "Send email" will error.
+
+If email fails, the app now still navigates to a draft results page (`/upload/result`) and shows the generated draft plus the email error.
 
 ---
 

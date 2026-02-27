@@ -2,6 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { exampleTranscripts } from "@/data/example-transcripts";
+import { useRouter } from "next/navigation";
+
+type DraftResult = {
+  method: "llm" | "heuristic";
+  emailed: boolean;
+  emailError: string | null;
+  epaId: string | null;
+  draft: {
+    epaId: string | null;
+    entrustment: string;
+    strengths: string[];
+    improvements: string[];
+    nextSteps: string[];
+    evidenceQuotes: string[];
+    summaryComment: string;
+  };
+};
 
 function extFromMimeType(mimeType: string | undefined) {
   if (!mimeType) return "webm";
@@ -28,6 +45,7 @@ function pickRecordingMimeType() {
 type DraftPhase = "idle" | "transcribing" | "creating";
 
 export default function UploadPage() {
+  const router = useRouter();
   const [residentName, setResidentName] = useState("");
   const [attendingName, setAttendingName] = useState("");
   const [attendingEmail, setAttendingEmail] = useState("");
@@ -162,10 +180,30 @@ export default function UploadPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed");
-      setSuccess(`Draft generated (${data.method}) and emailed to ${attendingEmail}.`);
-      setTranscript("");
-      setAudioBlob(null);
-      setAudioFile(null);
+      const draftResult: DraftResult = {
+        method: data.method,
+        emailed: Boolean(data.emailed),
+        emailError: data.emailError ?? null,
+        epaId: data.epaId ?? null,
+        draft: data.draft
+      };
+
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          "latestDraftResult",
+          JSON.stringify({
+            residentName,
+            residentEmail,
+            attendingName,
+            attendingEmail,
+            transcript: resolvedTranscript,
+            result: draftResult
+          })
+        );
+      }
+
+      router.push("/upload/result");
+      return;
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Please try again.");
       setDraftPhase("idle");
@@ -184,7 +222,7 @@ export default function UploadPage() {
 
       <form onSubmit={onSubmit} className="space-y-4">
         <section className="space-y-3 border rounded p-3">
-          <div className="font-semibold">Step 1: Who is this for?</div>
+          <div className="font-semibold">Who is this for?</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium">Your name</label>
@@ -212,7 +250,7 @@ export default function UploadPage() {
         </section>
 
         <section className="border rounded p-3 space-y-3">
-          <div className="font-semibold">Step 2: Record (optional)</div>
+          <div className="font-semibold">Audio (optional)</div>
           <div className="flex flex-wrap gap-2 items-center">
             {!recording ? (
               <button type="button" onClick={startRecording} className="px-4 py-2 rounded bg-slate-900 text-white text-sm font-medium">
@@ -243,11 +281,11 @@ export default function UploadPage() {
 
           {audioUrl && <audio controls src={audioUrl} className="w-full" />}
 
-          <div className="text-xs text-slate-600">If transcript text is empty, we will auto-transcribe your recording in Step 3.</div>
+          <div className="text-xs text-slate-600">If transcript text is empty, we will auto-transcribe your recording when you generate the draft.</div>
         </section>
 
         <section className="space-y-2 border rounded p-3">
-          <div className="font-semibold">Step 3: Transcript + Draft</div>
+          <div className="font-semibold">Transcript + draft</div>
 
           <div className="space-y-1">
             <label className="text-sm font-medium">Load an example transcript</label>
@@ -255,7 +293,15 @@ export default function UploadPage() {
               <select
                 className="border rounded p-2 text-sm min-w-[260px]"
                 value={selectedExampleId}
-                onChange={(e) => setSelectedExampleId(e.target.value)}
+                onChange={(e) => {
+                  const nextId = e.target.value;
+                  setSelectedExampleId(nextId);
+                  const nextExample = exampleTranscripts.find((example) => example.id === nextId);
+                  if (nextExample) {
+                    setTranscript(nextExample.transcript);
+                    setError(null);
+                  }
+                }}
               >
                 <option value="">Choose an example…</option>
                 {exampleTranscripts.map((example) => (
@@ -264,18 +310,6 @@ export default function UploadPage() {
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                className="px-3 py-1.5 rounded border text-sm"
-                onClick={() => {
-                  if (!selectedExample) return;
-                  setTranscript(selectedExample.transcript);
-                  setError(null);
-                }}
-                disabled={!selectedExample}
-              >
-                Use selected example
-              </button>
             </div>
             {selectedExample ? (
               <div className="text-xs text-slate-600">Expected EPA direction: {selectedExample.expectedEpa}</div>

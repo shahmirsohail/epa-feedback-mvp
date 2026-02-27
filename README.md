@@ -87,4 +87,6 @@ If no key is set, it falls back to keyword/heuristic drafting.
 Use `src/data/example-transcripts.md` for synthetic attending–resident feedback transcripts with suggested expected EPA mappings. You can also load these directly from the `/upload` page via the new “Load an example transcript” dropdown.
 
 ## Editable draft UI (v4)
-On the session page, the draft feedback form is editable (EPA, entrustment, strengths, improvements, next steps, evidence quotes, summary). Strengths/improvements should carry transcript-grounded details as the primary grounding, while evidence quotes remain supplementary. Editing is locked after approval.
+On the session page, the draft feedback form is editable (EPA, entrustment, strengths, improvements, next steps, evidence quotes, summary). Editing is locked after approval.
+
+The `/upload/result` page now also supports lightweight prototype editing with **Edit**, **Save locally**, and **Reset to generated draft** controls. These edits are stored in `sessionStorage` and are session/browser scoped (not persisted to the database unless you use the `/sessions/[id]` flow).

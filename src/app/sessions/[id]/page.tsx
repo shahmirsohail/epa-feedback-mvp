@@ -26,6 +26,7 @@ export default async function SessionPage({
   const method = meta.method || "heuristic";
   const justEmailed = searchParams?.emailed === "1";
   const justFailedEmail = searchParams?.email_failed === "1";
+  const insufficientEvidence = meta?.insufficient_evidence === true;
 
   return (
     <main className="space-y-6">
@@ -81,6 +82,13 @@ export default async function SessionPage({
           )}
         </div>
       </div>
+
+
+      {insufficientEvidence ? (
+        <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          This transcript appears to have insufficient specific feedback to draft reliably. Please add a longer, specific transcript (with concrete observations and actions) before finalizing or emailing.
+        </div>
+      ) : null}
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="border rounded p-3">

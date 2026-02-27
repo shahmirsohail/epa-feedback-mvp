@@ -4,6 +4,7 @@ import { EntrustmentSchema } from "./epa";
 import { getEpas } from "./epas";
 
 const AnalysisSchema = z.object({
+  insufficient_evidence: z.boolean().default(false),
   primary_epa_id: z.string().nullable(),
   secondary_epa_ids: z.preprocess(
     (value) => (value == null ? [] : value),
@@ -94,6 +95,7 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     "",
     "Output JSON fields required:",
     "{",
+    '  "insufficient_evidence": boolean,',
     '  "primary_epa_id": string|null,',
     '  "secondary_epa_ids": string[<=2],',
     '  "epa_confidence": number 0-1,',

@@ -4,6 +4,7 @@ import { EntrustmentSchema } from "./epa";
 import { getEpas } from "./epas";
 
 const AnalysisSchema = z.object({
+  insufficient_evidence: z.boolean().default(false),
   primary_epa_id: z.string().nullable(),
   secondary_epa_ids: z.preprocess(
     (value) => (value == null ? [] : value),
@@ -15,11 +16,26 @@ const AnalysisSchema = z.object({
   entrustment_level: EntrustmentSchema,
   entrustment_confidence: z.number().min(0).max(1),
 
-  strengths: z.array(z.string()).min(2).max(6),
-  improvements: z.array(z.string()).min(2).max(6),
-  next_steps: z.array(z.string()).min(2).max(6),
-  evidence_quotes: z.array(z.string()).min(2).max(6),
+  strengths: z.array(z.string()).max(6),
+  improvements: z.array(z.string()).max(6),
+  next_steps: z.array(z.string()).max(6),
+  evidence_quotes: z.array(z.string()).max(6),
   summary_comment: z.string().min(20).max(1200)
+}).superRefine((data, ctx) => {
+  if (data.insufficient_evidence) return;
+
+  if (data.strengths.length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["strengths"], message: "At least 2 strengths required unless insufficient_evidence is true." });
+  }
+  if (data.improvements.length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["improvements"], message: "At least 2 improvements required unless insufficient_evidence is true." });
+  }
+  if (data.next_steps.length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["next_steps"], message: "At least 2 next steps required unless insufficient_evidence is true." });
+  }
+  if (data.evidence_quotes.length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["evidence_quotes"], message: "At least 2 evidence quotes required unless insufficient_evidence is true." });
+  }
 });
 
 export type LlmAnalysis = z.infer<typeof AnalysisSchema>;
@@ -53,6 +69,7 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     "You are helping an attending physician draft a resident EPA assessment from a FEEDBACK conversation transcript.",
     "This output is a DRAFT only. The attending will review/edit and must approve before sending.",
     "You must be conservative: if unsure about the EPA mapping, set primary_epa_id = null and lower confidence.",
+    "If the transcript lacks specific evidence, set insufficient_evidence = true and keep evidence-related arrays sparse (including empty arrays).",
     "Do not invent patient identifiers; transcript is de-identified already.",
     "Return ONLY valid JSON matching the required schema."
   ].join(" ");
@@ -77,16 +94,17 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     "",
     "Output JSON fields required:",
     "{",
+    '  "insufficient_evidence": boolean,',
     '  "primary_epa_id": string|null,',
     '  "secondary_epa_ids": string[<=2],',
     '  "epa_confidence": number 0-1,',
     '  "epa_rationale": string (<=400 chars),',
     '  "entrustment_level": "Intervention"|"Direction"|"Support"|"Autonomy"|"Excellence",',
     '  "entrustment_confidence": number 0-1,',
-    '  "strengths": string[] (2-6 concise bullets),',
-    '  "improvements": string[] (2-6 concise bullets; actionable),',
-    '  "next_steps": string[] (2-6 concrete next-time steps),',
-    '  "evidence_quotes": string[] (2-6 short verbatim excerpts from transcript supporting your suggestions),',
+    '  "strengths": string[] (2-6 concise bullets; allow 0 when insufficient_evidence=true),',
+    '  "improvements": string[] (2-6 concise bullets; actionable; allow 0 when insufficient_evidence=true),',
+    '  "next_steps": string[] (2-6 concrete next-time steps; allow 0 when insufficient_evidence=true),',
+    '  "evidence_quotes": string[] (2-6 short verbatim excerpts from transcript; allow 0 when insufficient_evidence=true),',
     '  "summary_comment": string (20-1200 chars; fair, specific, non-judgmental).',
     "}",
     "",

@@ -15,6 +15,9 @@ type StoredDraftResult = {
     emailError: string | null;
     epaId: string | null;
     draft: {
+      meta?: {
+        insufficient_evidence?: boolean;
+      };
       epaId: string | null;
       entrustment: string;
       strengths: string[];
@@ -55,6 +58,8 @@ export default function UploadResultPage() {
 
   const { result } = payload;
 
+  const insufficientEvidence = result.draft.meta?.insufficient_evidence === true;
+
   return (
     <main className="space-y-5">
       <div>
@@ -73,6 +78,13 @@ export default function UploadResultPage() {
           Email was not sent: {result.emailError || "Unknown email error"}
         </div>
       )}
+
+
+      {insufficientEvidence ? (
+        <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          This transcript appears too short or non-specific to draft reliable EPA feedback. Please provide a longer transcript with concrete clinical decisions/actions before finalizing.
+        </div>
+      ) : null}
 
       <section className="rounded border p-4 space-y-3">
         <div>

@@ -3,6 +3,7 @@ import { Entrustment } from "./epa";
 export type FeedbackDraft = {
   meta: {
     method: "llm" | "heuristic";
+    insufficient_evidence?: boolean;
     epa_rationale?: string;
     secondary_epa_ids?: string[];
     epa_confidence?: number;

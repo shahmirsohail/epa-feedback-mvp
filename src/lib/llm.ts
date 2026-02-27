@@ -61,7 +61,7 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   const client = getOpenAIClient();
 
   const epas = getEpas().sort((a, b) => a.id.localeCompare(b.id));
-  const epaList = epas.map(e => ({
+  const epaList = epas.map((e) => ({
     id: e.id,
     title: e.title,
     description: e.description
@@ -129,12 +129,12 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   const analysis = AnalysisSchema.parse(parsed);
 
   // If EPA id not in list, coerce to null
-  const epaIds = new Set(epas.map(e => e.id));
+  const epaIds = new Set(epas.map((e) => e.id));
   if (analysis.primary_epa_id && !epaIds.has(analysis.primary_epa_id)) {
     analysis.primary_epa_id = null;
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.4);
   }
-  analysis.secondary_epa_ids = analysis.secondary_epa_ids.filter(id => epaIds.has(id));
+  analysis.secondary_epa_ids = analysis.secondary_epa_ids.filter((id) => epaIds.has(id));
 
   const originalImprovementCount = analysis.improvements.length;
   const originalStrengthCount = analysis.strengths.length;

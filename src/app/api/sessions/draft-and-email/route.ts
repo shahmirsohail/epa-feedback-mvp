@@ -16,14 +16,28 @@ export async function POST(req: Request) {
   try {
     const body = BodySchema.parse(await req.json());
     const generated = await createDraftFromTranscript(body);
-    await sendDraftEmail({
-      to: body.attendingEmail,
-      residentName: body.residentName,
-      attendingName: body.attendingName,
+    let emailed = false;
+    let emailError: string | null = null;
+
+    try {
+      await sendDraftEmail({
+        to: body.attendingEmail,
+        residentName: body.residentName,
+        attendingName: body.attendingName,
+        draft: generated.draft
+      });
+      emailed = true;
+    } catch (error: any) {
+      emailError = error?.message ?? "Email failed";
+    }
+
+    return NextResponse.json({
+      method: generated.method,
+      emailed,
+      emailError,
+      epaId: generated.mappedEpaId,
       draft: generated.draft
     });
-
-    return NextResponse.json({ method: generated.method, emailed: true, epaId: generated.mappedEpaId });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 400 });
   }

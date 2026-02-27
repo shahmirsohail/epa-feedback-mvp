@@ -4,6 +4,12 @@ import { EntrustmentSchema } from "./epa";
 import { getEpas } from "./epas";
 
 const AnalysisSchema = z.object({
+  insufficient_evidence: z.boolean().default(false),
+  primary_epa_id: z.string().nullable(),
+  ...
+});
+
+const AnalysisSchema = z.object({
   primary_epa_id: z.string().nullable(),
   secondary_epa_ids: z.preprocess(
     (value) => (value == null ? [] : value),

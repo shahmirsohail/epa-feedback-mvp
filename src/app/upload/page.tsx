@@ -162,7 +162,13 @@ export default function UploadPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed");
-      setSuccess(`Draft generated (${data.method}) and emailed to ${attendingEmail}.`);
+
+      if (data.emailed) {
+        setSuccess(`Draft generated (${data.method}) and emailed to ${attendingEmail}.`);
+      } else {
+        setSuccess(`Draft generated (${data.method}). Email was skipped: ${data.warning || "Email is not configured."}`);
+      }
+
       setTranscript("");
       setAudioBlob(null);
       setAudioFile(null);

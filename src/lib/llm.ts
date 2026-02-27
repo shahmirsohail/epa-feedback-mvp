@@ -15,11 +15,13 @@ const AnalysisSchema = z.object({
   entrustment_level: EntrustmentSchema,
   entrustment_confidence: z.number().min(0).max(1),
 
-  strengths: z.array(z.string()).min(2).max(6),
-  improvements: z.array(z.string()).min(2).max(6),
-  next_steps: z.array(z.string()).min(2).max(6),
-  evidence_quotes: z.array(z.string()).min(2).max(6),
-  summary_comment: z.string().min(20).max(1200)
+  strengths: z.array(z.string()).min(0).max(6),
+  improvements: z.array(z.string()).min(0).max(6),
+  next_steps: z.array(z.string()).min(0).max(6),
+  evidence_quotes: z.array(z.string()).min(0).max(6),
+  summary_comment: z.string().min(20).max(1200),
+  insufficient_evidence: z.boolean(),
+  insufficient_evidence_reason: z.string().max(400)
 });
 
 export type LlmAnalysis = z.infer<typeof AnalysisSchema>;
@@ -33,6 +35,19 @@ function safeJsonParse(s: string) {
     return JSON.parse(candidate);
   }
   return JSON.parse(s);
+}
+
+function referencesTranscriptPhrase(text: string, transcript: string) {
+  const normalizedTranscript = transcript.toLowerCase();
+  const quotedPhrases = Array.from(text.matchAll(/["'“”‘’]([^"'“”‘’]{3,})["'“”‘’]/g))
+    .map((match) => match[1].trim().toLowerCase())
+    .filter(Boolean);
+
+  if (quotedPhrases.length === 0) {
+    return false;
+  }
+
+  return quotedPhrases.some((phrase) => normalizedTranscript.includes(phrase));
 }
 
 export async function analyzeWithLLM(params: { transcriptDeId: string; context?: string | null }) {
@@ -53,6 +68,8 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     "You are helping an attending physician draft a resident EPA assessment from a FEEDBACK conversation transcript.",
     "This output is a DRAFT only. The attending will review/edit and must approve before sending.",
     "You must be conservative: if unsure about the EPA mapping, set primary_epa_id = null and lower confidence.",
+    "Every strength and improvement must be directly supported by a verbatim quote from the transcript; if not supported, omit it.",
+    "If transcript lacks specific feedback content, return primary_epa_id = null, low confidence, and a summary stating insufficient evidence.",
     "Do not invent patient identifiers; transcript is de-identified already.",
     "Return ONLY valid JSON matching the required schema."
   ].join(" ");
@@ -83,11 +100,13 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     '  "epa_rationale": string (<=400 chars),',
     '  "entrustment_level": "Intervention"|"Direction"|"Support"|"Autonomy"|"Excellence",',
     '  "entrustment_confidence": number 0-1,',
-    '  "strengths": string[] (2-6 concise bullets),',
-    '  "improvements": string[] (2-6 concise bullets; actionable),',
-    '  "next_steps": string[] (2-6 concrete next-time steps),',
-    '  "evidence_quotes": string[] (2-6 short verbatim excerpts from transcript supporting your suggestions),',
+    '  "strengths": string[] (0-6 concise bullets; each bullet must include >=1 short transcript quote),',
+    '  "improvements": string[] (0-6 concise bullets; actionable; each bullet must include >=1 short transcript quote),',
+    '  "next_steps": string[] (0-6 concrete next-time steps),',
+    '  "evidence_quotes": string[] (0-6 short verbatim excerpts from transcript supporting your suggestions),',
     '  "summary_comment": string (20-1200 chars; fair, specific, non-judgmental).',
+    '  "insufficient_evidence": boolean,',
+    '  "insufficient_evidence_reason": string (<=400 chars; explain what was missing).',
     "}",
     "",
     "Return JSON only."
@@ -113,6 +132,33 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.4);
   }
   analysis.secondary_epa_ids = analysis.secondary_epa_ids.filter(id => epaIds.has(id));
+
+  const originalImprovementCount = analysis.improvements.length;
+  analysis.improvements = analysis.improvements.filter(improvement =>
+    referencesTranscriptPhrase(improvement, params.transcriptDeId)
+  );
+
+  if (analysis.improvements.length < originalImprovementCount) {
+    analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.35);
+    analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.35);
+  }
+
+  if (
+    analysis.improvements.length === 0 &&
+    analysis.strengths.length === 0 &&
+    analysis.evidence_quotes.length === 0
+  ) {
+    analysis.insufficient_evidence = true;
+    if (!analysis.insufficient_evidence_reason.trim()) {
+      analysis.insufficient_evidence_reason = "Transcript lacks specific, quoteable feedback content.";
+    }
+    analysis.primary_epa_id = null;
+    analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.3);
+    analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.3);
+    if (!/insufficient evidence/i.test(analysis.summary_comment)) {
+      analysis.summary_comment = `${analysis.summary_comment} Insufficient evidence in transcript to provide specific grounded feedback.`.trim();
+    }
+  }
 
   return analysis;
 }

@@ -109,7 +109,7 @@ export default function UploadResultPage() {
         </div>
 
         <div>
-          <div className="font-medium">Strengths</div>
+          <div className="font-medium">Strengths (quoted evidence should appear inline)</div>
           <ul className="list-disc pl-5 text-sm space-y-1">
             {result.draft.strengths.map((item) => (
               <li key={item}>{item}</li>
@@ -118,7 +118,7 @@ export default function UploadResultPage() {
         </div>
 
         <div>
-          <div className="font-medium">Areas to improve</div>
+          <div className="font-medium">Areas to improve (quoted evidence should appear inline)</div>
           <ul className="list-disc pl-5 text-sm space-y-1">
             {result.draft.improvements.map((item) => (
               <li key={item}>{item}</li>
@@ -137,7 +137,7 @@ export default function UploadResultPage() {
 
         {result.draft.evidenceQuotes.length > 0 ? (
           <div>
-            <div className="font-medium">Evidence quotes</div>
+            <div className="font-medium">Evidence quotes (supplementary)</div>
             <ul className="list-disc pl-5 text-sm space-y-1">
               {result.draft.evidenceQuotes.map((item) => (
                 <li key={item}>{item}</li>

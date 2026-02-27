@@ -4,7 +4,6 @@ import { EntrustmentSchema } from "./epa";
 import { getEpas } from "./epas";
 
 const AnalysisSchema = z.object({
-  insufficient_evidence: z.boolean().default(false),
   primary_epa_id: z.string().nullable(),
   secondary_epa_ids: z.preprocess(
     (value) => (value == null ? [] : value),
@@ -49,6 +48,10 @@ function referencesTranscriptPhrase(text: string, transcript: string) {
   }
 
   return quotedPhrases.some((phrase) => normalizedTranscript.includes(phrase));
+}
+
+function filterGroundedBullets(bullets: string[], transcript: string) {
+  return bullets.filter((bullet) => referencesTranscriptPhrase(bullet, transcript));
 }
 
 export async function analyzeWithLLM(params: { transcriptDeId: string; context?: string | null }) {
@@ -136,13 +139,27 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   analysis.secondary_epa_ids = analysis.secondary_epa_ids.filter(id => epaIds.has(id));
 
   const originalImprovementCount = analysis.improvements.length;
-  analysis.improvements = analysis.improvements.filter(improvement =>
-    referencesTranscriptPhrase(improvement, params.transcriptDeId)
-  );
+  const originalStrengthCount = analysis.strengths.length;
 
-  if (analysis.improvements.length < originalImprovementCount) {
+  analysis.improvements = filterGroundedBullets(analysis.improvements, params.transcriptDeId);
+  analysis.strengths = filterGroundedBullets(analysis.strengths, params.transcriptDeId);
+
+  const droppedImprovements = analysis.improvements.length < originalImprovementCount;
+  const droppedStrengths = analysis.strengths.length < originalStrengthCount;
+
+  if (droppedImprovements || droppedStrengths) {
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.35);
     analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.35);
+  }
+
+  if (analysis.improvements.length > 0 && analysis.strengths.length === 0) {
+    analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.3);
+    analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.3);
+  }
+
+  if (analysis.strengths.length > 0 && analysis.improvements.length === 0) {
+    analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.3);
+    analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.3);
   }
 
   if (

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getEpas } from "@/lib/epas";
 import DraftEditor from "./DraftEditor";
+import { formatEpaLabel } from "@/lib/epa-label";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export default async function SessionPage({
         <div className="p-3 border rounded bg-slate-50 text-sm min-w-[280px] space-y-1">
           <div className="font-semibold">Auto-analysis</div>
           <div className="text-xs text-slate-600">Method: <span className="font-medium">{method === "llm" ? "AI (LLM) draft" : "Heuristic draft"}</span></div>
-          <div><span className="font-medium">EPA:</span> {session.mappedEpaId ?? draft?.epaId ?? "Unmapped"} {session.mappedEpaConfidence != null ? <span className="text-xs text-slate-600">(conf {Number(session.mappedEpaConfidence).toFixed(2)})</span> : null}</div>
+          <div><span className="font-medium">EPA:</span> {formatEpaLabel(session.mappedEpaId ?? draft?.epaId ?? null)} {session.mappedEpaConfidence != null ? <span className="text-xs text-slate-600">(conf {Number(session.mappedEpaConfidence).toFixed(2)})</span> : null}</div>
           {meta.epa_rationale && (
             <div className="text-xs text-slate-700">
               <span className="font-medium">Rationale:</span> {meta.epa_rationale}
@@ -52,7 +53,7 @@ export default async function SessionPage({
           )}
           {Array.isArray(meta.secondary_epa_ids) && meta.secondary_epa_ids.length > 0 && (
             <div className="text-xs text-slate-700">
-              <span className="font-medium">Alternates:</span> {meta.secondary_epa_ids.join(", ")}
+              <span className="font-medium">Alternates:</span> {meta.secondary_epa_ids.map((epaId: string) => formatEpaLabel(epaId)).join(", ")}
             </div>
           )}
           <div><span className="font-medium">Entrustment:</span> {session.entrustment} <span className="text-xs text-slate-600">(conf {Number(session.entrustmentConfidence).toFixed(2)})</span></div>

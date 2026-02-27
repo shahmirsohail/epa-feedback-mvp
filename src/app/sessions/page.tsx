@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { formatEpaLabel } from "@/lib/epa-label";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function SessionsPage() {
                   <div className="text-xs text-slate-600">Resident: {s.residentEmail}</div>
                   <div className="text-xs text-slate-600">Attending: {s.attendingEmail}</div>
                 </td>
-                <td className="p-2">{s.mappedEpaId ?? getEpaFromDraft(s.draftJson)}</td>
+                <td className="p-2">{formatEpaLabel(s.mappedEpaId ?? getEpaFromDraft(s.draftJson))}</td>
                 <td className="p-2">{s.entrustment}</td>
                 <td className="p-2">
                   {s.emailSent ? "Emailed" : "Draft"}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { formatEpaLabel } from "@/lib/epa-label";
 
 const GENERATED_DRAFT_STORAGE_KEY = "latestDraftResultGeneratedDraft";
 
@@ -256,7 +257,7 @@ export default function UploadResultPage() {
           <>
             <div>
               <div className="text-sm text-slate-600">EPA</div>
-              <div className="font-medium">{result.draft.epaId ?? "Not confidently matched"}</div>
+              <div className="font-medium">{formatEpaLabel(result.draft.epaId)}</div>
             </div>
             <div>
               <div className="text-sm text-slate-600">Entrustment</div>

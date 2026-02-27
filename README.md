@@ -87,3 +87,5 @@ Use `src/data/example-transcripts.md` for synthetic attending–resident feedbac
 
 ## Editable draft UI (v4)
 On the session page, the draft feedback form is editable (EPA, entrustment, strengths, improvements, next steps, evidence quotes, summary). Editing is locked after approval.
+
+The `/upload/result` page now also supports lightweight prototype editing with **Edit**, **Save locally**, and **Reset to generated draft** controls. These edits are stored in `sessionStorage` and are session/browser scoped (not persisted to the database unless you use the `/sessions/[id]` flow).

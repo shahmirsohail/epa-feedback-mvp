@@ -31,6 +31,47 @@ function pickEvidence(text: string) {
   return src.slice(0, 3);
 }
 
+function shortQuotedFragment(sentence: string) {
+  const cleaned = sentence.replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+
+  const withoutSpeaker = cleaned.replace(/^[A-Za-z ]{2,20}:\s*/, "").trim();
+  const fragment = withoutSpeaker.length > 80 ? `${withoutSpeaker.slice(0, 77).trim()}...` : withoutSpeaker;
+  return `“${fragment}”`;
+}
+
+function categorizeEvidence(evidenceQuotes: string[]) {
+  const strengths: string[] = [];
+  const improvements: string[] = [];
+
+  for (const quote of evidenceQuotes) {
+    const lc = quote.toLowerCase();
+    const fragment = shortQuotedFragment(quote);
+    if (!fragment) continue;
+
+    if (/good|great|strong|well|nice|clear|excellent|appropriate|escalat|organized|thorough/.test(lc)) {
+      strengths.push(`You ${fragment}, which showed effective clinical judgment and communication.`);
+      continue;
+    }
+
+    if (/need|should|consider|next time|improv|missed|earlier|late|unclear|prompt|step in/.test(lc)) {
+      improvements.push(`You noted ${fragment}; make this more explicit and actionable in real time.`);
+      continue;
+    }
+
+    if (strengths.length <= improvements.length) {
+      strengths.push(`You highlighted ${fragment}, which is a concrete strength to keep building.`);
+    } else {
+      improvements.push(`You mentioned ${fragment}; tighten this further with clear contingency planning.`);
+    }
+  }
+
+  return {
+    strengths: strengths.slice(0, 3),
+    improvements: improvements.slice(0, 3)
+  };
+}
+
 export function buildHeuristicDraft(params: {
   transcriptDeId: string;
   epaId: string | null;
@@ -40,17 +81,21 @@ export function buildHeuristicDraft(params: {
 }): FeedbackDraft {
   const { transcriptDeId, epaId, entrustment } = params;
   const evidenceQuotes = pickEvidence(transcriptDeId);
+  const categorized = categorizeEvidence(evidenceQuotes);
 
-  const strengthsBase = [
-    "Communicated a clear problem representation and differential.",
-    "Prioritized patient safety and escalated appropriately when needed.",
-    "Demonstrated organized clinical reasoning and follow-through."
-  ];
-  const improvementsBase = [
-    "Tighten the assessment by explicitly stating the leading diagnosis and why.",
-    "Be explicit about contingency planning and when to re-assess/escalate.",
-    "Use closed-loop communication during handover/consults to confirm shared understanding."
-  ];
+  const fallbackStrengths = evidenceQuotes
+    .slice(0, 2)
+    .map((quote) => shortQuotedFragment(quote))
+    .filter((quote): quote is string => Boolean(quote))
+    .map((quote) => `You described ${quote} and linked it to patient care priorities.`);
+  const fallbackImprovements = evidenceQuotes
+    .slice(0, 2)
+    .map((quote) => shortQuotedFragment(quote))
+    .filter((quote): quote is string => Boolean(quote))
+    .map((quote) => `You said ${quote}; next time, add a clearer if/then escalation plan.`);
+
+  const strengthsBase = categorized.strengths.length ? categorized.strengths : fallbackStrengths;
+  const improvementsBase = categorized.improvements.length ? categorized.improvements : fallbackImprovements;
 
   const nextSteps = [
     "Before the next case, write a 1–2 sentence problem representation and top 3 differential, then compare to staff feedback.",

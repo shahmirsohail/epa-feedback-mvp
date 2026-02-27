@@ -76,7 +76,8 @@ The server calls `POST /api/transcribe` using OpenAI's `audio/transcriptions` en
 If `OPENAI_API_KEY` is set, the server will use an LLM to:
 - choose the most relevant EPA from the seeded list
 - suggest an entrustment level
-- draft strengths/improvements/next steps with evidence quotes
+- draft strengths/improvements/next steps with transcript-grounded details embedded directly in strengths/improvements bullets
+- keep `evidence_quotes` as supplementary supporting snippets
 
 If no key is set, it falls back to keyword/heuristic drafting.
 

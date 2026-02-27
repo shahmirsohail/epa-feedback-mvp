@@ -21,7 +21,6 @@ const AnalysisSchema = z.object({
   next_steps: z.array(z.string()).min(0).max(6),
   evidence_quotes: z.array(z.string()).min(0).max(6),
   summary_comment: z.string().min(20).max(1200),
-  insufficient_evidence: z.boolean(),
   insufficient_evidence_reason: z.string().max(400)
 });
 
@@ -51,6 +50,10 @@ function referencesTranscriptPhrase(text: string, transcript: string) {
   return quotedPhrases.some((phrase) => normalizedTranscript.includes(phrase));
 }
 
+function filterGroundedBullets(bullets: string[], transcript: string) {
+  return bullets.filter((bullet) => referencesTranscriptPhrase(bullet, transcript));
+}
+
 export async function analyzeWithLLM(params: { transcriptDeId: string; context?: string | null }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -59,7 +62,7 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   const client = getOpenAIClient();
 
   const epas = getEpas().sort((a, b) => a.id.localeCompare(b.id));
-  const epaList = epas.map(e => ({
+  const epaList = epas.map((e) => ({
     id: e.id,
     title: e.title,
     description: e.description
@@ -107,7 +110,6 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     '  "next_steps": string[] (0-6 concrete next-time steps),',
     '  "evidence_quotes": string[] (0-6 short verbatim excerpts from transcript supporting your suggestions),',
     '  "summary_comment": string (20-1200 chars; fair, specific, non-judgmental).',
-    '  "insufficient_evidence": boolean,',
     '  "insufficient_evidence_reason": string (<=400 chars; explain what was missing).',
     "}",
     "",
@@ -128,21 +130,35 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   const analysis = AnalysisSchema.parse(parsed);
 
   // If EPA id not in list, coerce to null
-  const epaIds = new Set(epas.map(e => e.id));
+  const epaIds = new Set(epas.map((e) => e.id));
   if (analysis.primary_epa_id && !epaIds.has(analysis.primary_epa_id)) {
     analysis.primary_epa_id = null;
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.4);
   }
-  analysis.secondary_epa_ids = analysis.secondary_epa_ids.filter(id => epaIds.has(id));
+  analysis.secondary_epa_ids = analysis.secondary_epa_ids.filter((id) => epaIds.has(id));
 
   const originalImprovementCount = analysis.improvements.length;
-  analysis.improvements = analysis.improvements.filter(improvement =>
-    referencesTranscriptPhrase(improvement, params.transcriptDeId)
-  );
+  const originalStrengthCount = analysis.strengths.length;
 
-  if (analysis.improvements.length < originalImprovementCount) {
+  analysis.improvements = filterGroundedBullets(analysis.improvements, params.transcriptDeId);
+  analysis.strengths = filterGroundedBullets(analysis.strengths, params.transcriptDeId);
+
+  const droppedImprovements = analysis.improvements.length < originalImprovementCount;
+  const droppedStrengths = analysis.strengths.length < originalStrengthCount;
+
+  if (droppedImprovements || droppedStrengths) {
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.35);
     analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.35);
+  }
+
+  if (analysis.improvements.length > 0 && analysis.strengths.length === 0) {
+    analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.3);
+    analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.3);
+  }
+
+  if (analysis.strengths.length > 0 && analysis.improvements.length === 0) {
+    analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.3);
+    analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.3);
   }
 
   if (

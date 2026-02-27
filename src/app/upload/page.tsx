@@ -148,12 +148,19 @@ export default function UploadPage() {
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error || "We could not turn your audio into text. Please try again.");
 
-    const nextTranscript = (data.text || "").trim();
+    const nextTranscript = (data.diarizedText || data.text || "").trim();
     if (!nextTranscript) {
       throw new Error("We could not hear enough to create text. Please try a clearer recording.");
     }
 
     setTranscript(nextTranscript);
+    if (data?.speakerInference) {
+      const attending = Math.round(Number(data.speakerInference.attendingConfidence ?? 0.5) * 100);
+      const resident = Math.round(Number(data.speakerInference.residentConfidence ?? 0.5) * 100);
+      setSuccess(
+        `Transcribed and speaker-labeled using AI inference (Attending ${attending}% / Resident ${resident}% confidence). Please quickly review labels before sending.`
+      );
+    }
     return nextTranscript;
   }
 

@@ -151,11 +151,11 @@ export default function DraftEditor(props: {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <label className="text-sm font-medium">Strengths (one per line; include inline transcript quotes)</label>
+          <label className="text-sm font-medium">Strengths (one per line; keep transcript-grounded)</label>
           <textarea className="w-full border rounded p-2 h-36 text-sm" value={strengthsText} onChange={e=>setStrengthsText(e.target.value)} disabled={props.disabled} />
         </div>
         <div>
-          <label className="text-sm font-medium">Improvements (one per line; include inline transcript quotes)</label>
+          <label className="text-sm font-medium">Improvements (one per line; keep transcript-grounded)</label>
           <textarea className="w-full border rounded p-2 h-36 text-sm" value={improvementsText} onChange={e=>setImprovementsText(e.target.value)} disabled={props.disabled} />
         </div>
         <div>

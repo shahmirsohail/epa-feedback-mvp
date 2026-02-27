@@ -109,7 +109,7 @@ export default function UploadResultPage() {
         </div>
 
         <div>
-          <div className="font-medium">Strengths (quoted evidence should appear inline)</div>
+          <div className="font-medium">Strengths (grounded in transcript details)</div>
           <ul className="list-disc pl-5 text-sm space-y-1">
             {result.draft.strengths.map((item) => (
               <li key={item}>{item}</li>
@@ -118,7 +118,7 @@ export default function UploadResultPage() {
         </div>
 
         <div>
-          <div className="font-medium">Areas to improve (quoted evidence should appear inline)</div>
+          <div className="font-medium">Areas to improve (grounded in transcript details)</div>
           <ul className="list-disc pl-5 text-sm space-y-1">
             {result.draft.improvements.map((item) => (
               <li key={item}>{item}</li>

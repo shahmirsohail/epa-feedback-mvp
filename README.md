@@ -76,7 +76,7 @@ The server calls `POST /api/transcribe` using OpenAI's `audio/transcriptions` en
 If `OPENAI_API_KEY` is set, the server will use an LLM to:
 - choose the most relevant EPA from the seeded list
 - suggest an entrustment level
-- draft strengths/improvements/next steps with transcript quotes embedded directly in strengths/improvements bullets
+- draft strengths/improvements/next steps with transcript-grounded details embedded directly in strengths/improvements bullets
 - keep `evidence_quotes` as supplementary supporting snippets
 
 If no key is set, it falls back to keyword/heuristic drafting.
@@ -87,4 +87,4 @@ If no key is set, it falls back to keyword/heuristic drafting.
 Use `src/data/example-transcripts.md` for synthetic attending–resident feedback transcripts with suggested expected EPA mappings. You can also load these directly from the `/upload` page via the new “Load an example transcript” dropdown.
 
 ## Editable draft UI (v4)
-On the session page, the draft feedback form is editable (EPA, entrustment, strengths, improvements, next steps, evidence quotes, summary). Strengths/improvements should carry inline transcript quotes as the primary grounding, while evidence quotes remain supplementary. Editing is locked after approval.
+On the session page, the draft feedback form is editable (EPA, entrustment, strengths, improvements, next steps, evidence quotes, summary). Strengths/improvements should carry transcript-grounded details as the primary grounding, while evidence quotes remain supplementary. Editing is locked after approval.

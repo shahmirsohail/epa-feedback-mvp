@@ -20,7 +20,7 @@ npm run prisma:migrate    # Apply migrations + regenerate client
 npm run prisma:seed       # Seed EPA catalog into DB
 ```
 
-There are no tests.
+There are no unit tests. E2E tests use Playwright (see below).
 
 ## Setup
 
@@ -115,3 +115,34 @@ The `meta.method` field on `FeedbackDraft` indicates which path was used.
 ### Path Alias
 
 `@/*` maps to `./src/*` (configured in `tsconfig.json`).
+
+## E2E Verification with Playwright
+
+Tests live in `e2e/`. They run against any URL — local dev server or a Vercel preview deployment.
+
+```bash
+# Against local dev server (start it first with npm run dev)
+npm run e2e
+
+# Against a Vercel preview URL
+BASE_URL=https://your-preview.vercel.app npm run e2e
+
+# Run a single test file
+BASE_URL=https://your-preview.vercel.app npx playwright test e2e/phi-scrub.spec.ts
+```
+
+Key test: `e2e/phi-scrub.spec.ts` — submits a transcript containing a fake patient name and asserts it does not appear verbatim in the generated draft result page.
+
+### Self-Healing Loop
+
+When making changes and verifying with Playwright:
+
+1. Push the branch → wait for Vercel preview to build
+2. Run API tests (no browser needed): `BASE_URL=<vercel-url> npm run e2e:api`
+3. Run full browser tests (requires `npx playwright install chromium` first): `BASE_URL=<vercel-url> npm run e2e`
+4. If tests fail: read the failure output, fix the code, commit + push, wait for new preview build, re-run
+5. Repeat until all tests pass, then mark the task complete
+
+**Note**: The Claude Code sandbox blocks outbound network and browser downloads. Run E2E tests from your local machine or CI against the Vercel preview URL.
+
+Always prefer running E2E against the Vercel preview over local dev for features that depend on the full pipeline (LLM, DB, email).

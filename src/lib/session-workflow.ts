@@ -20,6 +20,23 @@ export type CreateSessionInput = {
 
 export type DraftOnlyInput = Omit<CreateSessionInput, "residentEmail">;
 
+function scrubDraftFields(draft: FeedbackDraft): FeedbackDraft {
+  const s = (text: string) => deidentify(text).deidentified;
+  return {
+    ...draft,
+    strengths: draft.strengths.map(s),
+    improvements: draft.improvements.map(s),
+    nextSteps: draft.nextSteps.map(s),
+    evidenceQuotes: draft.evidenceQuotes.map(s),
+    summaryComment: s(draft.summaryComment),
+    meta: {
+      ...draft.meta,
+      ...(draft.meta.epa_rationale && { epa_rationale: s(draft.meta.epa_rationale) })
+    }
+  };
+}
+
+
 export async function createDraftFromTranscript(input: DraftOnlyInput) {
   const de = deidentify(input.transcript);
 
@@ -29,7 +46,7 @@ export async function createDraftFromTranscript(input: DraftOnlyInput) {
     throw new Error("OPENAI_API_KEY is not configured — LLM analysis required.");
   }
 
-  const draft: FeedbackDraft = {
+  const draft: FeedbackDraft = scrubDraftFields({
     meta: {
       method: "llm",
       insufficient_evidence: llm.insufficient_evidence,
@@ -45,7 +62,7 @@ export async function createDraftFromTranscript(input: DraftOnlyInput) {
     nextSteps: llm.next_steps,
     evidenceQuotes: llm.evidence_quotes,
     summaryComment: llm.summary_comment
-  };
+  });
 
   return {
     deidentifiedTranscript: de.deidentified,

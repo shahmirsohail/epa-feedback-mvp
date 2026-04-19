@@ -76,7 +76,11 @@ export async function POST(req: Request) {
 
     const model = process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
     const client = getOpenAIClient();
-    const res = await client.audio.transcriptions.create({ file: input, model });
+    const res = await client.audio.transcriptions.create({
+      file: input,
+      model,
+      prompt: "Medical education feedback conversation between an attending physician and a resident physician discussing a clinical case."
+    });
     const text = (res as any).text ?? "";
 
     let roleInference: RoleInference | null = null;

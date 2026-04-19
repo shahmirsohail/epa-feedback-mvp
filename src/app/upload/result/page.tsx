@@ -13,7 +13,7 @@ type StoredDraftResult = {
   attendingEmail: string;
   transcript: string;
   result: {
-    method: "llm" | "heuristic";
+    method: "llm";
     emailed: boolean;
     emailError: string | null;
     epaId: string | null;
@@ -115,7 +115,7 @@ export default function UploadResultPage() {
       <div>
         <h1 className="text-2xl font-bold">Draft generated</h1>
         <p className="text-sm text-slate-600">
-          Method: <span className="font-medium">{result.method}</span>
+          Method: <span className="font-medium">AI analysis</span>
         </p>
         <p className="text-xs text-slate-500 mt-1">Prototype mode: edits on this page are saved in this browser session only.</p>
       </div>

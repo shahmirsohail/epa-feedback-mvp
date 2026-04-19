@@ -79,6 +79,22 @@ function buildInsufficientEvidenceDraft(): FeedbackDraft {
   };
 }
 
+function scrubDraftFields(draft: FeedbackDraft, _transcript: string): FeedbackDraft {
+  const s = (text: string) => deidentify(text).deidentified;
+  return {
+    ...draft,
+    strengths: draft.strengths.map(s),
+    improvements: draft.improvements.map(s),
+    nextSteps: draft.nextSteps.map(s),
+    evidenceQuotes: draft.evidenceQuotes.map(s),
+    summaryComment: s(draft.summaryComment),
+    meta: {
+      ...draft.meta,
+      ...(draft.meta.epa_rationale && { epa_rationale: s(draft.meta.epa_rationale) })
+    }
+  };
+}
+
 export async function createDraftFromTranscript(input: DraftOnlyInput) {
   const de = deidentify(input.transcript);
   const adequacy = isTranscriptSufficientForDraft(de.deidentified);
@@ -142,6 +158,8 @@ export async function createDraftFromTranscript(input: DraftOnlyInput) {
       entrustmentConfidence
     });
   }
+
+  draft = scrubDraftFields(draft, de.deidentified);
 
   const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
 

@@ -74,7 +74,7 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     "You must be conservative: if unsure about the EPA mapping, set primary_epa_id = null and lower confidence.",
     "Every strength and improvement must be directly supported by a verbatim quote from the transcript; if not supported, omit it.",
     "If transcript lacks specific feedback content, return primary_epa_id = null, low confidence, and a summary stating insufficient evidence.",
-    "Do not invent patient identifiers; transcript is de-identified already.",
+    "Never include patient names, dates, locations, MRNs, or any identifying information in any output field. All output must be de-identified.",
     "Return ONLY valid JSON matching the required schema."
   ].join(" ");
 

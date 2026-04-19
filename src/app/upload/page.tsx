@@ -5,7 +5,7 @@ import { exampleTranscripts } from "@/data/example-transcripts";
 import { useRouter } from "next/navigation";
 
 type DraftResult = {
-  method: "llm" | "heuristic";
+  method: "llm";
   emailed: boolean;
   emailError: string | null;
   epaId: string | null;

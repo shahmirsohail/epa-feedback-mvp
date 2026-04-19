@@ -37,23 +37,6 @@ function safeJsonParse(s: string) {
   return JSON.parse(s);
 }
 
-function referencesTranscriptPhrase(text: string, transcript: string) {
-  const normalizedTranscript = transcript.toLowerCase();
-  const quotedPhrases = Array.from(text.matchAll(/["'“”‘’]([^"'“”‘’]{3,})["'“”‘’]/g))
-    .map((match) => match[1].trim().toLowerCase())
-    .filter(Boolean);
-
-  if (quotedPhrases.length === 0) {
-    return false;
-  }
-
-  return quotedPhrases.some((phrase) => normalizedTranscript.includes(phrase));
-}
-
-function filterGroundedBullets(bullets: string[], transcript: string) {
-  return bullets.filter((bullet) => referencesTranscriptPhrase(bullet, transcript));
-}
-
 export async function analyzeWithLLM(params: { transcriptDeId: string; context?: string | null }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -72,7 +55,7 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     "You are helping an attending physician draft a resident EPA assessment from a FEEDBACK conversation transcript.",
     "This output is a DRAFT only. The attending will review/edit and must approve before sending.",
     "You must be conservative: if unsure about the EPA mapping, set primary_epa_id = null and lower confidence.",
-    "Every strength and improvement must be directly supported by a verbatim quote from the transcript; if not supported, omit it.",
+    'Every strength and improvement bullet MUST embed at least one short verbatim quote in double-quotes, e.g.: \'You said "I started with airway and circulation" which showed safe prioritization.\' Omit any bullet you cannot ground with a direct quote from the transcript.',
     "If transcript lacks specific feedback content, return primary_epa_id = null, low confidence, and a summary stating insufficient evidence.",
     "Never include patient names, dates, locations, MRNs, or any identifying information in any output field. All output must be de-identified.",
     "Return ONLY valid JSON matching the required schema."
@@ -105,8 +88,8 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     '  "epa_rationale": string (<=400 chars),',
     '  "entrustment_level": "Intervention"|"Direction"|"Support"|"Autonomy"|"Excellence",',
     '  "entrustment_confidence": number 0-1,',
-    '  "strengths": string[] (0-6 concise bullets; each bullet must include >=1 short transcript quote),',
-    '  "improvements": string[] (0-6 concise bullets; actionable; each bullet must include >=1 short transcript quote),',
+    '  "strengths": string[] (0-6 concise bullets; each bullet MUST embed a verbatim quote in double-quotes from the transcript),',
+    '  "improvements": string[] (0-6 concise bullets; actionable; each bullet MUST embed a verbatim quote in double-quotes from the transcript),',
     '  "next_steps": string[] (0-6 concrete next-time steps),',
     '  "evidence_quotes": string[] (0-6 short verbatim excerpts from transcript supporting your suggestions),',
     '  "summary_comment": string (20-1200 chars; fair, specific, non-judgmental).',
@@ -119,6 +102,7 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   const resp = await client.chat.completions.create({
     model,
     temperature: 0.2,
+    response_format: { type: "json_object" },
     messages: [
       { role: "system", content: system },
       { role: "user", content: user }
@@ -136,20 +120,6 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.4);
   }
   analysis.secondary_epa_ids = analysis.secondary_epa_ids.filter((id) => epaIds.has(id));
-
-  const originalImprovementCount = analysis.improvements.length;
-  const originalStrengthCount = analysis.strengths.length;
-
-  analysis.improvements = filterGroundedBullets(analysis.improvements, params.transcriptDeId);
-  analysis.strengths = filterGroundedBullets(analysis.strengths, params.transcriptDeId);
-
-  const droppedImprovements = analysis.improvements.length < originalImprovementCount;
-  const droppedStrengths = analysis.strengths.length < originalStrengthCount;
-
-  if (droppedImprovements || droppedStrengths) {
-    analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.35);
-    analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.35);
-  }
 
   if (analysis.improvements.length > 0 && analysis.strengths.length === 0) {
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.3);

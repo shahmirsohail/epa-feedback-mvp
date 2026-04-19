@@ -1,22 +1,8 @@
 import { deidentify } from "@/lib/deid";
-import { buildHeuristicDraft, type FeedbackDraft } from "@/lib/draft";
-import { matchEPA, inferEntrustment } from "@/lib/epa";
+import { type FeedbackDraft } from "@/lib/draft";
 import { analyzeWithLLM } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
 import { sendDraftEmail } from "@/lib/email";
-import { getEpas } from "@/lib/epas";
-
-const TRANSCRIPT_MIN_WORDS = 40;
-const TRANSCRIPT_MIN_CLINICAL_TERMS = 3;
-const TRANSCRIPT_MAX_REPETITION_RATIO = 0.35;
-
-const CLINICAL_ACTION_TERMS = [
-  "assess", "assessment", "diagnosis", "differential", "plan", "management",
-  "treatment", "medication", "dose", "follow-up", "handover", "handoff", "escalate",
-  "consult", "investigation", "labs", "imaging", "history", "exam", "communication",
-  "safety", "prioritize", "reassess", "monitor", "document", "discharge", "admit",
-  "resuscitation", "procedure", "interpret", "counsel", "consent"
-];
 
 const SESSION_EMAIL_STATES = {
   emailPending: "email_pending",
@@ -34,52 +20,7 @@ export type CreateSessionInput = {
 
 export type DraftOnlyInput = Omit<CreateSessionInput, "residentEmail">;
 
-export function isTranscriptSufficientForDraft(transcript: string) {
-  const words = transcript
-    .toLowerCase()
-    .match(/[a-z0-9'-]+/g) ?? [];
-
-  const totalWordCount = words.length;
-  const uniqueWordCount = new Set(words).size;
-  const repetitionRatio = totalWordCount === 0 ? 1 : 1 - uniqueWordCount / totalWordCount;
-
-  const distinctClinicalTerms = new Set(
-    CLINICAL_ACTION_TERMS.filter((term) => transcript.toLowerCase().includes(term))
-  );
-
-  const sufficient =
-    totalWordCount >= TRANSCRIPT_MIN_WORDS &&
-    distinctClinicalTerms.size >= TRANSCRIPT_MIN_CLINICAL_TERMS &&
-    repetitionRatio <= TRANSCRIPT_MAX_REPETITION_RATIO;
-
-  return {
-    sufficient,
-    totalWordCount,
-    distinctClinicalTermCount: distinctClinicalTerms.size,
-    repetitionRatio
-  };
-}
-
-function buildInsufficientEvidenceDraft(): FeedbackDraft {
-  return {
-    meta: {
-      method: "heuristic",
-      insufficient_evidence: true,
-      epa_confidence: 0,
-      entrustment_confidence: 0.2
-    },
-    epaId: null,
-    entrustment: "Support",
-    strengths: [],
-    improvements: ["Provide a longer transcript with specific behaviors, decisions, and clinical actions discussed."],
-    nextSteps: ["Re-run draft generation after adding concrete examples from the feedback conversation."],
-    evidenceQuotes: [],
-    summaryComment:
-      "The transcript did not include enough specific feedback detail to draft an EPA assessment reliably. Please provide a longer, more specific transcript before finalizing."
-  };
-}
-
-function scrubDraftFields(draft: FeedbackDraft, _transcript: string): FeedbackDraft {
+function scrubDraftFields(draft: FeedbackDraft): FeedbackDraft {
   const s = (text: string) => deidentify(text).deidentified;
   return {
     ...draft,
@@ -95,83 +36,43 @@ function scrubDraftFields(draft: FeedbackDraft, _transcript: string): FeedbackDr
   };
 }
 
+
 export async function createDraftFromTranscript(input: DraftOnlyInput) {
   const de = deidentify(input.transcript);
-  const adequacy = isTranscriptSufficientForDraft(de.deidentified);
-
-  if (!adequacy.sufficient) {
-    const draft = buildInsufficientEvidenceDraft();
-    return {
-      deidentifiedTranscript: de.deidentified,
-      redactions: de.redactions,
-      mappedEpaId: null,
-      mappedEpaConfidence: 0,
-      entrustment: "Support",
-      entrustmentConfidence: 0.2,
-      draft,
-      method: "heuristic" as const
-    };
-  }
 
   const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: input.context || null });
 
-  let mappedEpaId: string | null = null;
-  let mappedEpaConfidence = 0.0;
-  let entrustment = "Support";
-  let entrustmentConfidence = 0.0;
-  let draft: FeedbackDraft;
-
-  if (llm) {
-    mappedEpaId = llm.primary_epa_id;
-    mappedEpaConfidence = llm.epa_confidence;
-    entrustment = llm.entrustment_level;
-    entrustmentConfidence = llm.entrustment_confidence;
-    draft = {
-      meta: {
-        method: "llm",
-        insufficient_evidence: llm.insufficient_evidence,
-        epa_rationale: llm.epa_rationale,
-        secondary_epa_ids: llm.secondary_epa_ids,
-        epa_confidence: llm.epa_confidence,
-        entrustment_confidence: llm.entrustment_confidence
-      },
-      epaId: llm.primary_epa_id,
-      entrustment: llm.entrustment_level,
-      strengths: llm.strengths,
-      improvements: llm.improvements,
-      nextSteps: llm.next_steps,
-      evidenceQuotes: llm.evidence_quotes,
-      summaryComment: llm.summary_comment
-    };
-  } else {
-    const epaMatch = await matchEPA(de.deidentified);
-    mappedEpaId = validateEpaId(epaMatch.epaId);
-    const ent = inferEntrustment(de.deidentified);
-    mappedEpaConfidence = epaMatch.confidence;
-    entrustment = ent.level;
-    entrustmentConfidence = ent.confidence;
-    draft = buildHeuristicDraft({
-      transcriptDeId: de.deidentified,
-      epaId: epaMatch.epaId,
-      entrustment: ent.level,
-      epaConfidence: mappedEpaConfidence,
-      entrustmentConfidence
-    });
+  if (!llm) {
+    throw new Error("OPENAI_API_KEY is not configured — LLM analysis required.");
   }
 
-  draft = scrubDraftFields(draft, de.deidentified);
-
-  const method: "llm" | "heuristic" = llm ? "llm" : "heuristic";
+  const draft: FeedbackDraft = scrubDraftFields({
+    meta: {
+      method: "llm",
+      insufficient_evidence: llm.insufficient_evidence,
+      epa_rationale: llm.epa_rationale,
+      secondary_epa_ids: llm.secondary_epa_ids,
+      epa_confidence: llm.epa_confidence,
+      entrustment_confidence: llm.entrustment_confidence
+    },
+    epaId: llm.primary_epa_id,
+    entrustment: llm.entrustment_level,
+    strengths: llm.strengths,
+    improvements: llm.improvements,
+    nextSteps: llm.next_steps,
+    evidenceQuotes: llm.evidence_quotes,
+    summaryComment: llm.summary_comment
+  });
 
   return {
     deidentifiedTranscript: de.deidentified,
     redactions: de.redactions,
-    mappedEpaId,
-    mappedEpaConfidence,
-    entrustment,
-    entrustmentConfidence,
+    mappedEpaId: llm.primary_epa_id,
+    mappedEpaConfidence: llm.epa_confidence,
+    entrustment: llm.entrustment_level,
+    entrustmentConfidence: llm.entrustment_confidence,
     draft,
-    method
+    method: "llm" as const
   };
 }
 
@@ -235,12 +136,4 @@ export async function emailSessionDraft(sessionId: string) {
       emailError: null
     }
   });
-}
-
-
-function validateEpaId(epaId: string | null | undefined): string | null {
-  const epas = getEpas();
-  if (!epaId) return null;
-  const exists = epas.some((epa) => epa.id === epaId);
-  return exists ? epaId : null;
 }

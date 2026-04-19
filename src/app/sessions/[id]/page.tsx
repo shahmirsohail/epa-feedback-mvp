@@ -24,7 +24,7 @@ export default async function SessionPage({
   const epas = getEpas().sort((a, b) => a.id.localeCompare(b.id));
   const draft = JSON.parse(session.draftJson);
   const meta = draft?.meta || {};
-  const method = meta.method || "heuristic";
+  const method = meta.method || "llm";
   const justEmailed = searchParams?.emailed === "1";
   const justFailedEmail = searchParams?.email_failed === "1";
   const insufficientEvidence = meta?.insufficient_evidence === true;
@@ -44,7 +44,7 @@ export default async function SessionPage({
 
         <div className="p-3 border rounded bg-slate-50 text-sm min-w-[280px] space-y-1">
           <div className="font-semibold">Auto-analysis</div>
-          <div className="text-xs text-slate-600">Method: <span className="font-medium">{method === "llm" ? "AI (LLM) draft" : "Heuristic draft"}</span></div>
+          <div className="text-xs text-slate-600">Method: <span className="font-medium">AI analysis</span></div>
           <div><span className="font-medium">EPA:</span> {formatEpaLabel(session.mappedEpaId ?? draft?.epaId ?? null)} {session.mappedEpaConfidence != null ? <span className="text-xs text-slate-600">(conf {Number(session.mappedEpaConfidence).toFixed(2)})</span> : null}</div>
           {meta.epa_rationale && (
             <div className="text-xs text-slate-700">

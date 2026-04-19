@@ -19,12 +19,16 @@ export type FeedbackDraft = {
 };
 
 export async function buildDraft(transcript: string): Promise<{ draft: FeedbackDraft; epaMatch: EpaMatch }> {
-  const epaMatch = await matchEPA(transcript);
+  const wordCount = transcript.trim().split(/\s+/).length;
+  const tooShort = wordCount < 40;
+
+  const epaMatch = tooShort ? { epaId: null, confidence: 0.2, top3: [] } : await matchEPA(transcript);
   const { level, confidence } = inferEntrustment(transcript);
 
   const draft: FeedbackDraft = {
     meta: {
       method: "heuristic",
+      insufficient_evidence: tooShort || undefined,
       epa_confidence: epaMatch.confidence,
       entrustment_confidence: confidence
     },

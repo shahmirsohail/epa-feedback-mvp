@@ -1,5 +1,5 @@
 import { deidentify } from "@/lib/deid";
-import { type FeedbackDraft, buildDraft } from "@/lib/draft";
+import { type FeedbackDraft } from "@/lib/draft";
 import { analyzeWithLLM } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
 import { sendDraftEmail } from "@/lib/email";
@@ -40,57 +40,36 @@ function scrubDraftFields(draft: FeedbackDraft): FeedbackDraft {
 export async function createDraftFromTranscript(input: DraftOnlyInput) {
   const de = deidentify(input.transcript);
 
-  let llm = null;
-  try {
-    llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: input.context || null });
-  } catch {
-    // Network unavailable or API error — fall through to heuristic
-  }
+  const llm = await analyzeWithLLM({ transcriptDeId: de.deidentified, context: input.context || null });
+  if (!llm) throw new Error("LLM analysis unavailable — OPENAI_API_KEY not configured");
 
-  if (llm) {
-    const draft: FeedbackDraft = scrubDraftFields({
-      meta: {
-        method: "llm",
-        insufficient_evidence: llm.insufficient_evidence,
-        epa_rationale: llm.epa_rationale,
-        secondary_epa_ids: llm.secondary_epa_ids,
-        epa_confidence: llm.epa_confidence,
-        entrustment_confidence: llm.entrustment_confidence
-      },
-      epaId: llm.primary_epa_id,
-      entrustment: llm.entrustment_level,
-      strengths: llm.strengths,
-      improvements: llm.improvements,
-      nextSteps: llm.next_steps,
-      evidenceQuotes: llm.evidence_quotes,
-      summaryComment: llm.summary_comment
-    });
-
-    return {
-      deidentifiedTranscript: de.deidentified,
-      redactions: de.redactions,
-      mappedEpaId: llm.primary_epa_id,
-      mappedEpaConfidence: llm.epa_confidence,
-      entrustment: llm.entrustment_level,
-      entrustmentConfidence: llm.entrustment_confidence,
-      draft,
-      method: "llm" as const
-    };
-  }
-
-  // Heuristic fallback when OpenAI is unavailable
-  const { draft: hDraft, epaMatch } = await buildDraft(de.deidentified);
-  const scrubbedHDraft = scrubDraftFields(hDraft);
+  const draft: FeedbackDraft = scrubDraftFields({
+    meta: {
+      method: "llm",
+      insufficient_evidence: llm.insufficient_evidence,
+      epa_rationale: llm.epa_rationale,
+      secondary_epa_ids: llm.secondary_epa_ids,
+      epa_confidence: llm.epa_confidence,
+      entrustment_confidence: llm.entrustment_confidence
+    },
+    epaId: llm.primary_epa_id,
+    entrustment: llm.entrustment_level,
+    strengths: llm.strengths,
+    improvements: llm.improvements,
+    nextSteps: llm.next_steps,
+    evidenceQuotes: llm.evidence_quotes,
+    summaryComment: llm.summary_comment
+  });
 
   return {
     deidentifiedTranscript: de.deidentified,
     redactions: de.redactions,
-    mappedEpaId: epaMatch.epaId,
-    mappedEpaConfidence: epaMatch.confidence,
-    entrustment: scrubbedHDraft.entrustment,
-    entrustmentConfidence: scrubbedHDraft.meta.entrustment_confidence ?? 0.5,
-    draft: scrubbedHDraft,
-    method: "heuristic" as const
+    mappedEpaId: llm.primary_epa_id,
+    mappedEpaConfidence: llm.epa_confidence,
+    entrustment: llm.entrustment_level,
+    entrustmentConfidence: llm.entrustment_confidence,
+    draft,
+    method: "llm" as const
   };
 }
 

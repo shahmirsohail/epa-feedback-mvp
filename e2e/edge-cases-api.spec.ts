@@ -86,8 +86,6 @@ Attending: You are not ready to lead a rapid response without direct attending p
     expect(resp.ok()).toBeTruthy();
     const body = await resp.json();
 
-    test.skip(body.method !== "llm", "OpenAI API unavailable — heuristic cannot assess entrustment accuracy");
-
     expect(VALID_ENTRUSTMENTS).toContain(body.draft.entrustment);
     expect(
       ["Intervention", "Direction"],
@@ -124,8 +122,6 @@ Attending: We will practice this every single handover this week until it is aut
     expect(resp.ok()).toBeTruthy();
     const body = await resp.json();
 
-    test.skip(body.method !== "llm", "OpenAI API unavailable — heuristic cannot assess entrustment accuracy");
-
     expect(body.epaId, `Handover feedback must map to FOD-2C. Got: ${body.epaId}`).toBe("FOD-2C");
     expect(
       ["Intervention", "Direction"],
@@ -156,8 +152,6 @@ Resident: That means a great deal. I will keep practicing and pass it on.`;
     });
     expect(resp.ok()).toBeTruthy();
     const body = await resp.json();
-
-    test.skip(body.method !== "llm", "OpenAI API unavailable — heuristic cannot assess entrustment accuracy");
 
     expect(body.epaId, `Goals-of-care meeting must map to FOD-6. Got: ${body.epaId}`).toBe("FOD-6");
     expect(body.draft.entrustment, `Flawless performance must yield Excellence. Got: ${body.draft.entrustment}`).toBe("Excellence");
@@ -191,8 +185,6 @@ Attending: Your differential was reasonable and you communicated the plan to nur
     });
     expect(resp.ok()).toBeTruthy();
     const body = await resp.json();
-
-    test.skip(body.method !== "llm", "OpenAI API unavailable — hallucination probe requires LLM-generated quotes");
 
     expect(body.epaId, "Chest pain workup must map to FOD-1").toBe("FOD-1");
 

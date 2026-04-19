@@ -15,9 +15,10 @@ Attending: Overall, you are performing well. I would say you can manage these ca
 
 test.describe("PHI scrubbing — API level (no browser needed)", () => {
   test("draft API: patient name scrubbed from all text fields", async ({ request }) => {
-    const resp = await request.post("/api/sessions/draft", {
+    const resp = await request.post("/api/sessions/draft-and-email", {
       data: {
         residentName: "Dr. Resident Test",
+        residentEmail: "resident@test.com",
         attendingName: "Dr. Attending Test",
         attendingEmail: "attending@test.com",
         context: "E2E PHI scrub test",
@@ -43,9 +44,10 @@ test.describe("PHI scrubbing — API level (no browser needed)", () => {
   });
 
   test("draft API: returns valid entrustment level", async ({ request }) => {
-    const resp = await request.post("/api/sessions/draft", {
+    const resp = await request.post("/api/sessions/draft-and-email", {
       data: {
         residentName: "Dr. Resident Test",
+        residentEmail: "resident@test.com",
         attendingName: "Dr. Attending Test",
         attendingEmail: "attending@test.com",
         transcript: TRANSCRIPT

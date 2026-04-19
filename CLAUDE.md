@@ -138,8 +138,11 @@ Key test: `e2e/phi-scrub.spec.ts` — submits a transcript containing a fake pat
 When making changes and verifying with Playwright:
 
 1. Push the branch → wait for Vercel preview to build
-2. Run `BASE_URL=<vercel-preview-url> npm run e2e`
-3. If tests fail: read the failure output, fix the code, commit + push, wait for new preview, re-run
-4. Repeat until all tests pass, then mark the task complete
+2. Run API tests (no browser needed): `BASE_URL=<vercel-url> npm run e2e:api`
+3. Run full browser tests (requires `npx playwright install chromium` first): `BASE_URL=<vercel-url> npm run e2e`
+4. If tests fail: read the failure output, fix the code, commit + push, wait for new preview build, re-run
+5. Repeat until all tests pass, then mark the task complete
+
+**Note**: The Claude Code sandbox blocks outbound network and browser downloads. Run E2E tests from your local machine or CI against the Vercel preview URL.
 
 Always prefer running E2E against the Vercel preview over local dev for features that depend on the full pipeline (LLM, DB, email).

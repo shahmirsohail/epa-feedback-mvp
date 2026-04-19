@@ -55,8 +55,8 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     "You are helping an attending physician draft a resident EPA assessment from a FEEDBACK conversation transcript.",
     "This output is a DRAFT only. The attending will review/edit and must approve before sending.",
     "You must be conservative: if unsure about the EPA mapping, set primary_epa_id = null and lower confidence.",
-    'Every strength and improvement bullet MUST embed at least one short verbatim quote in double-quotes, e.g.: \'You said "I started with airway and circulation" which showed safe prioritization.\' Omit any bullet you cannot ground with a direct quote from the transcript.',
-    "If transcript lacks specific feedback content, return primary_epa_id = null, low confidence, and a summary stating insufficient evidence.",
+    'Every strength and improvement bullet MUST embed at least one short verbatim quote in double-quotes from the transcript, e.g.: \'You said "I started with airway and circulation" which showed safe prioritization.\' Omit any bullet you cannot ground with a direct quote. Also populate evidence_quotes with the same verbatim excerpts.',
+    "If transcript lacks specific clinical feedback content (e.g. it is social chitchat, fewer than 50 words, or no clinical actions are described), set insufficient_evidence=true, primary_epa_id=null, and leave strengths/improvements/evidence_quotes empty.",
     "Never include patient names, dates, locations, MRNs, or any identifying information in any output field. All output must be de-identified.",
     "Return ONLY valid JSON matching the required schema."
   ].join(" ");
@@ -64,12 +64,12 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   const user = [
     "Task: (1) map the transcript to the best matching EPA from the list, (2) suggest an entrustment level, and (3) draft feedback.",
     "",
-    "Entrustment scale (choose one):",
-    "- Intervention: attending must step in / take over for safety or completeness",
-    "- Direction: frequent prompting or close direction needed",
-    "- Support: needs intermittent support/check-ins but can proceed",
-    "- Autonomy: can perform independently in routine cases; minimal oversight",
-    "- Excellence: consistently above expected; could coach others",
+    "Entrustment scale — pick the level that best matches the attending's explicit assessment of the resident:",
+    "- Intervention: attending physically took over or had to intervene for patient safety; resident was not safe to continue.",
+    "- Direction: attending had to provide explicit step-by-step guidance throughout; resident could not proceed without constant prompting.",
+    "- Support: resident managed the situation but needed intermittent guidance or check-ins at key decision points.",
+    "- Autonomy: resident performed independently with minimal oversight; attending observed but did not need to direct.",
+    "- Excellence: resident performed consistently above expected level; attending explicitly states no improvements, calls the performance exemplary, or says the resident could teach peers.",
     "",
     "Context (optional): " + (params.context || "unknown"),
     "",
@@ -121,6 +121,19 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
   }
   analysis.secondary_epa_ids = analysis.secondary_epa_ids.filter((id) => epaIds.has(id));
 
+  // Backfill evidence_quotes from inline verbatim quotes embedded in bullet text.
+  // The LLM often puts quotes in the bullets themselves but leaves this array empty.
+  if (analysis.evidence_quotes.length === 0) {
+    const inlineQuotePattern = /"([^"]{10,200})"/g;
+    const bulletText = [...analysis.strengths, ...analysis.improvements].join(" ");
+    const extracted: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = inlineQuotePattern.exec(bulletText)) !== null) {
+      extracted.push(m[1]);
+    }
+    analysis.evidence_quotes = extracted.slice(0, 6);
+  }
+
   if (analysis.improvements.length > 0 && analysis.strengths.length === 0) {
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.3);
     analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.3);
@@ -131,14 +144,19 @@ export async function analyzeWithLLM(params: { transcriptDeId: string; context?:
     analysis.entrustment_confidence = Math.min(analysis.entrustment_confidence, 0.3);
   }
 
-  if (
-    analysis.improvements.length === 0 &&
+  // Flag insufficient evidence when no quoteable content could be grounded at all,
+  // or when the transcript is very short (< 40 words) and produced no evidence.
+  const wordCount = params.transcriptDeId.trim().split(/\s+/).length;
+  const noGroundedContent =
     analysis.strengths.length === 0 &&
-    analysis.evidence_quotes.length === 0
-  ) {
+    analysis.improvements.length === 0 &&
+    analysis.evidence_quotes.length === 0;
+  const tooShort = wordCount < 40 && analysis.evidence_quotes.length === 0;
+
+  if (noGroundedContent || tooShort) {
     analysis.insufficient_evidence = true;
     if (!analysis.insufficient_evidence_reason.trim()) {
-      analysis.insufficient_evidence_reason = "Transcript lacks specific, quoteable feedback content.";
+      analysis.insufficient_evidence_reason = "Transcript lacks specific, quoteable clinical feedback content.";
     }
     analysis.primary_epa_id = null;
     analysis.epa_confidence = Math.min(analysis.epa_confidence, 0.3);

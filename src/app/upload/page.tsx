@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { exampleTranscripts } from "@/data/example-transcripts";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type DraftResult = {
@@ -54,19 +53,12 @@ export default function UploadPage() {
   const [draftPhase, setDraftPhase] = useState<DraftPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [selectedExampleId, setSelectedExampleId] = useState("");
-
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
-
-  const selectedExample = useMemo(
-    () => exampleTranscripts.find((example) => example.id === selectedExampleId) ?? null,
-    [selectedExampleId]
-  );
 
   useEffect(() => {
     if (!audioBlob) {
@@ -294,41 +286,12 @@ export default function UploadPage() {
         <section className="space-y-2 border rounded p-3">
           <div className="font-semibold">Transcript + draft</div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium">Load an example transcript</label>
-            <div className="flex flex-wrap gap-2 items-center">
-              <select
-                className="border rounded p-2 text-sm min-w-[260px]"
-                value={selectedExampleId}
-                onChange={(e) => {
-                  const nextId = e.target.value;
-                  setSelectedExampleId(nextId);
-                  const nextExample = exampleTranscripts.find((example) => example.id === nextId);
-                  if (nextExample) {
-                    setTranscript(nextExample.transcript);
-                    setError(null);
-                  }
-                }}
-              >
-                <option value="">Choose an example…</option>
-                {exampleTranscripts.map((example) => (
-                  <option key={example.id} value={example.id}>
-                    {example.label} ({example.expectedEpa})
-                  </option>
-                ))}
-              </select>
-            </div>
-            {selectedExample ? (
-              <div className="text-xs text-slate-600">Expected EPA direction: {selectedExample.expectedEpa}</div>
-            ) : null}
-          </div>
-
           <label className="text-sm font-medium">Transcript</label>
           <textarea
             className="h-56 w-full rounded border p-2 font-mono text-xs"
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
-            placeholder="Paste a transcript, load an example above, or leave blank to auto-fill from audio."
+            placeholder="Paste a transcript or leave blank to auto-fill from audio."
           />
 
           {draftPhase === "transcribing" && <div className="text-sm text-slate-700">Transcribing…</div>}

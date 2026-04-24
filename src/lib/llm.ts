@@ -13,7 +13,10 @@ const AnalysisSchema = z.object({
   epa_confidence: z.number().min(0).max(1),
   epa_rationale: z.string().max(400),
 
-  entrustment_level: EntrustmentSchema,
+  entrustment_level: z.preprocess(
+    (v) => (EntrustmentSchema.safeParse(v).success ? v : "Support"),
+    EntrustmentSchema
+  ),
   entrustment_confidence: z.number().min(0).max(1),
 
   strengths: z.array(z.string()).min(0).max(6),
@@ -21,7 +24,7 @@ const AnalysisSchema = z.object({
   next_steps: z.array(z.string()).min(0).max(6),
   evidence_quotes: z.array(z.string()).min(0).max(6),
   summary_comment: z.string().min(20).max(1200),
-  insufficient_evidence_reason: z.string().max(400)
+  insufficient_evidence_reason: z.string().max(400).default("")
 });
 
 export type LlmAnalysis = z.infer<typeof AnalysisSchema>;
